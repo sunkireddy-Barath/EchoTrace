@@ -31,7 +31,7 @@ It is a **Qdrant-native semantic intelligence platform** that detects, clusters,
 
 <div align="center">
 
-[![EchoTrace Demo Video](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://youtu.be/3dWzNZXA8DY)
+[![EchoTrace Demo Video](https://img.youtube.com/vi/3dWzNZXA8DY/maxresdefault.jpg)](https://youtu.be/3dWzNZXA8DY)
 
 *Click the thumbnail to watch the full 3-minute demo*
 
