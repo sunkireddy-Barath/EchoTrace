@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, Clock, Zap, Dna, Share2 } from 'lucide-react';
+import { ArrowLeft, Download, Clock, Zap, Dna, Share2, Brain } from 'lucide-react';
 import type { AnalysisResult } from '@/lib/types';
 import { ThreatCard } from '@/components/ThreatCard';
 import { SimilarityMeter } from '@/components/SimilarityMeter';
@@ -120,6 +120,21 @@ export default function ResultsPage() {
             {/* Threat card */}
             <ThreatCard result={result} />
 
+            {/* Final Insight Briefing Card */}
+            <div className="rounded-2xl border border-neon/30 bg-neon/5 overflow-hidden">
+              <div className="px-5 py-4 flex gap-4">
+                <Brain className="w-5 h-5 text-neon flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-[10px] text-ink-3 uppercase tracking-widest font-mono mb-1">
+                    Psychological Intelligence Briefing
+                  </div>
+                  <p className="text-sm text-ink-2 font-medium leading-relaxed">
+                    {result.insight_text}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Zero-day (compact, if not zero-day) */}
             {!result.zero_day.is_zero_day && (
               <ZeroDayAlert alert={result.zero_day} />
@@ -142,6 +157,47 @@ export default function ResultsPage() {
                   8 psychological manipulation dimensions scored using Qdrant probe embedding similarity.
                   Dominant vector: <span className="text-neon">{result.genome.dominant_vector}</span>
                 </p>
+              </div>
+            </div>
+
+            {/* Hidden Psychological Relatives */}
+            <div className="rounded-2xl border border-border bg-surface-2 overflow-hidden">
+              <div className="px-5 pt-4 pb-3 border-b border-border flex items-center gap-3">
+                <Dna className="w-4 h-4 text-neon" />
+                <div>
+                  <div className="text-[10px] text-ink-3 uppercase tracking-widest mb-0.5">Cross-Family Lineage</div>
+                  <div className="text-sm font-bold text-ink">Hidden Psychological Relatives</div>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-ink-3 leading-relaxed">
+                  The following scams belong to different semantic families but share high structural alignment across the 8 psychological vectors.
+                </p>
+                {result.psychological_relatives && result.psychological_relatives.length > 0 ? (
+                  <div className="space-y-4">
+                    {result.psychological_relatives.map((rel) => (
+                      <div key={rel.id} className="p-3.5 rounded-xl bg-surface-3 border border-border space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-ink-2 font-mono uppercase tracking-wider">{rel.family}</span>
+                          <span className="font-mono text-neon font-black bg-neon/10 px-2 py-0.5 rounded border border-neon/20">
+                            {Math.round(rel.dna_similarity * 100)}% DNA Match
+                          </span>
+                        </div>
+                        <p className="text-xs text-ink-3 italic line-clamp-2">
+                          &ldquo;{rel.text}&rdquo;
+                        </p>
+                        <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[10px] text-ink-3 font-mono">
+                          <span>Dominant Vector: <span className="text-ink-2 font-semibold capitalize">{rel.dominant_vector.replace('_', ' ')}</span></span>
+                          <span>Semantic Sim: {Math.round(rel.similarity * 100)}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border border-dashed border-border rounded-xl">
+                    <span className="text-xs text-ink-3 font-mono">No cross-family psychological alignments detected.</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

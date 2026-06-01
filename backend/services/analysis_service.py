@@ -18,11 +18,13 @@ from typing import Optional, TYPE_CHECKING
 
 from fastapi import HTTPException, UploadFile
 
+import numpy as np
 from models.schemas import (
     AnalysisResult,
     EvolutionEntry,
     SimilarMessage,
     ZeroDayAlert,
+    PsychologicalRelative,
 )
 
 if TYPE_CHECKING:
@@ -214,6 +216,73 @@ class AnalysisService:
             "evolution_count": len(evolution_timeline),
         })
 
+        # ── Step 11: Psychological relatives (scams from other families with matching DNA) ──
+        relative_points = self.qdrant.semantic_search(
+            query_vector,
+            limit=5,
+            must_not_family=detected_family,
+            with_vectors=True
+        )
+
+        psychological_relatives = []
+        for r in relative_points:
+            # Calculate the relative's genome from its vector
+            rel_vector = r.vector
+            if rel_vector is None:
+                continue
+            
+            rel_genome = self.genome.compute_genome(rel_vector)
+            
+            # Compute DNA similarity (cosine similarity of their 8-dimension genome profiles)
+            v_query = np.array([d.score for d in genome.dimensions])
+            v_rel = np.array([d.score for d in rel_genome.dimensions])
+            
+            norm_q = np.linalg.norm(v_query)
+            norm_r = np.linalg.norm(v_rel)
+            
+            if norm_q > 0 and norm_r > 0:
+                dna_sim = float(np.dot(v_query, v_rel) / (norm_q * norm_r))
+            else:
+                dna_sim = 0.0
+
+            psychological_relatives.append(
+                PsychologicalRelative(
+                    id=str(r.id),
+                    text=r.payload.get("message_text", ""),
+                    family=r.payload.get("scam_family", "Unknown"),
+                    dna_similarity=round(dna_sim, 4),
+                    dominant_vector=rel_genome.dominant_vector,
+                    similarity=round(float(r.score), 4),
+                    year=int(r.payload.get("year", 2024)),
+                )
+            )
+
+        # Sort by DNA similarity descending
+        psychological_relatives.sort(key=lambda x: x.dna_similarity, reverse=True)
+
+        # ── Step 12: Dynamic Final Insight Card text generator ─────────────────
+        sorted_dims = sorted(genome.dimensions, key=lambda d: d.score, reverse=True)
+        dominant_lbl = sorted_dims[0].label.lower()
+        
+        # Secondary check (score >= 0.5)
+        secondary = [d for d in sorted_dims[1:] if d.score >= 0.5]
+        if secondary:
+            secondary_lbl = secondary[0].label.lower()
+            tactics = f"{dominant_lbl} and {secondary_lbl}"
+        else:
+            tactics = f"{dominant_lbl} tactics"
+
+        rel_families = list(dict.fromkeys([r.family for r in psychological_relatives if r.dna_similarity >= 0.6]))
+        
+        insight_text = f"This scam belongs to the {detected_family} family but shares psychological DNA with {tactics}."
+        if rel_families:
+            if len(rel_families) == 1:
+                insight_text += f" It shows strong strategic overlaps with campaigns in the {rel_families[0]} family."
+            else:
+                insight_text += f" It shares tactical characteristics with campaigns in the {', '.join(rel_families[:-1])} and {rel_families[-1]} families."
+        else:
+            insight_text += f" It utilizes highly targeted manipulation vectors to bypass typical intellectual defenses."
+
         return AnalysisResult(
             threat_level=threat_level,
             threat_score=round(threat_score, 4),
@@ -228,4 +297,6 @@ class AnalysisService:
             zero_day=zero_day_alert,
             novelty_score=round(1.0 - global_max_similarity, 4),
             risk_indicators=risk_indicators,
+            psychological_relatives=psychological_relatives,
+            insight_text=insight_text,
         )

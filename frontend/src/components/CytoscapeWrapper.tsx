@@ -14,12 +14,14 @@ export default function CytoscapeWrapper({ graphData }: Props) {
   useEffect(() => {
     if (!containerRef.current || !graphData.nodes.length) return;
 
+    let active = true;
     let cy: {
       destroy(): void;
     } | null = null;
 
     (async () => {
       const cytoscape = (await import('cytoscape')).default;
+      if (!active || !containerRef.current) return;
 
       const elements = [
         ...graphData.nodes.map((n) => ({
@@ -116,10 +118,15 @@ export default function CytoscapeWrapper({ graphData }: Props) {
         boxSelectionEnabled: false,
       });
 
-      cyRef.current = cy;
+      if (!active) {
+        cy.destroy();
+      } else {
+        cyRef.current = cy;
+      }
     })();
 
     return () => {
+      active = false;
       if (cy) cy.destroy();
     };
   }, [graphData]);

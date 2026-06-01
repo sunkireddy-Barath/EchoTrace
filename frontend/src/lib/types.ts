@@ -11,6 +11,16 @@ export interface SimilarMessage {
   source_label: string;
 }
 
+export interface PsychologicalRelative {
+  id: string;
+  text: string;
+  family: string;
+  dna_similarity: number;
+  dominant_vector: string;
+  similarity: number;
+  year: number;
+}
+
 export interface EvolutionEntry {
   year: number;
   text: string;
@@ -92,6 +102,8 @@ export interface AnalysisResult {
   zero_day: ZeroDayAlert;
   novelty_score: number;
   risk_indicators: string[];
+  psychological_relatives: PsychologicalRelative[];
+  insight_text: string;
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────

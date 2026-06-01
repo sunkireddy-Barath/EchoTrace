@@ -40,7 +40,12 @@ class QdrantService:
     ):
         if host in (":memory:", "memory"):
             self.client = QdrantClient(":memory:")
-        elif host.startswith(("./", ".\\", "/", "\\")) or (len(host) > 2 and host[1] == ":"):
+        elif (
+            host.startswith(("./", ".\\", "../", "..\\", "/", "\\"))
+            or "/" in host
+            or "\\" in host
+            or (len(host) > 2 and host[1] == ":")
+        ):
             self.client = QdrantClient(path=host)
         else:
             self.client = QdrantClient(host=host, port=port, timeout=30)
@@ -174,6 +179,8 @@ class QdrantService:
         limit: int = 10,
         family_filter: Optional[str] = None,
         exclude_community: bool = False,
+        must_not_family: Optional[str] = None,
+        with_vectors: bool = False,
     ) -> list:
         filters: list = []
         if family_filter:
@@ -191,13 +198,26 @@ class QdrantService:
                 )
             )
 
-        query_filter = qmodels.Filter(must=filters) if filters else None
+        must_not_filters: list = []
+        if must_not_family:
+            must_not_filters.append(
+                qmodels.FieldCondition(
+                    key="scam_family",
+                    match=qmodels.MatchValue(value=must_not_family),
+                )
+            )
+
+        query_filter = qmodels.Filter(
+            must=filters if filters else None,
+            must_not=must_not_filters if must_not_filters else None,
+        ) if (filters or must_not_filters) else None
 
         response = self.client.query_points(
             collection_name=self.scam_messages,
             query=query_vector,
             query_filter=query_filter,
             with_payload=True,
+            with_vectors=with_vectors,
             limit=limit,
         )
         return response.points

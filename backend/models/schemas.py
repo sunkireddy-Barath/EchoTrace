@@ -17,6 +17,16 @@ class SimilarMessage(BaseModel):
     source_label: str = "Unknown"
 
 
+class PsychologicalRelative(BaseModel):
+    id: str
+    text: str
+    family: str
+    dna_similarity: float
+    dominant_vector: str
+    similarity: float
+    year: int
+
+
 class EvolutionEntry(BaseModel):
     year: int
     text: str
@@ -150,6 +160,8 @@ class AnalysisResult(BaseModel):
     zero_day: ZeroDayAlert
     novelty_score: float         # 0=known pattern, 1=never seen before
     risk_indicators: list[str]   # Plain-English risk flags
+    psychological_relatives: list[PsychologicalRelative]
+    insight_text: str
 
 
 # ─────────────────────────────────────────────────────────────────────────────
