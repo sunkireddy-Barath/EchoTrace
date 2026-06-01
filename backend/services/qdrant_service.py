@@ -38,7 +38,12 @@ class QdrantService:
         scam_messages_collection: str,
         scam_families_collection: str,
     ):
-        self.client = QdrantClient(host=host, port=port, timeout=30)
+        if host in (":memory:", "memory"):
+            self.client = QdrantClient(":memory:")
+        elif host.startswith(("./", ".\\", "/", "\\")) or (len(host) > 2 and host[1] == ":"):
+            self.client = QdrantClient(path=host)
+        else:
+            self.client = QdrantClient(host=host, port=port, timeout=30)
         self.vector_size = vector_size
         self.scam_messages = scam_messages_collection
         self.scam_families = scam_families_collection
