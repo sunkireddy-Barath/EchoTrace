@@ -12,10 +12,12 @@ async def get_stats():
     raw_stats = qdrant_service.get_family_stats()
     families = [FamilyStats(**s) for s in raw_stats]
     recent_threats = sum(1 for f in families if max(f.years, default=0) >= 2024)
+    community_count = qdrant_service.get_community_count()
     return DashboardStats(
         total_messages=total,
         total_families=len(families),
         recent_threats=recent_threats,
+        zero_day_count=community_count,
         top_families=families[:6],
     )
 
@@ -36,4 +38,5 @@ async def health():
         qdrant_connected=qdrant_service.is_healthy(),
         model_loaded=embedding_service.is_loaded(),
         total_messages=qdrant_service.get_total_count(),
+        qdrant_version="1.18+",
     )
