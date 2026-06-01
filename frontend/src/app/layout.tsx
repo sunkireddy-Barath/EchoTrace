@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { Sidebar } from '@/components/Sidebar';
 
 export const metadata: Metadata = {
   title: 'EchoTrace AI | Semantic Fraud Intelligence Engine',
   description:
-    'Detect scam families before keywords catch them. Qdrant-powered semantic search for fraud detection, evolution tracking, and threat intelligence.',
-  keywords: ['fraud detection', 'scam analysis', 'semantic search', 'Qdrant', 'AI', 'threat intelligence'],
+    'Detect scam families before keywords catch them. Qdrant-powered semantic genome analysis, zero-day fraud detection, and evolution velocity tracking.',
+  keywords: ['fraud detection', 'scam analysis', 'semantic search', 'Qdrant', 'AI', 'threat intelligence', 'zero-day'],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -15,8 +16,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className="min-h-screen bg-cyber-bg text-cyber-text antialiased">
-        {children}
+      <body className="min-h-screen bg-void text-ink antialiased">
+        <Sidebar />
+        <div className="ml-[220px] min-h-screen">
+          {children}
+        </div>
       </body>
     </html>
   );

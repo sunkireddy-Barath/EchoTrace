@@ -1,28 +1,34 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Shield, Network, AlertTriangle, Crosshair } from 'lucide-react';
+import { Database, Network, Zap, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { DashboardStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-interface StatCardProps {
+interface StatProps {
   icon: React.ReactNode;
   label: string;
   value: string | number;
+  sub?: string;
   color: string;
+  glowClass?: string;
 }
 
-function StatCard({ icon, label, value, color }: StatCardProps) {
+function StatCard({ icon, label, value, sub, color, glowClass }: StatProps) {
   return (
     <div className={cn(
-      'flex items-center gap-4 rounded-xl border border-cyber-border bg-cyber-card p-4',
-      'hover:border-cyber-accent/40 transition-colors'
+      'rounded-xl border border-border bg-surface-2 p-4 flex items-center gap-4',
+      'hover:border-border-2 transition-all',
+      glowClass,
     )}>
-      <div className={cn('p-2.5 rounded-lg', color)}>{icon}</div>
-      <div>
-        <div className="text-2xl font-bold font-mono text-cyber-text">{value}</div>
-        <div className="text-xs text-cyber-muted uppercase tracking-wider">{label}</div>
+      <div className={cn('p-2.5 rounded-xl flex-shrink-0', color + '/10')}>
+        <div className={color}>{icon}</div>
+      </div>
+      <div className="min-w-0">
+        <div className="text-2xl font-black font-mono text-ink">{value}</div>
+        <div className="text-xs font-medium text-ink-3 uppercase tracking-wider mt-0.5">{label}</div>
+        {sub && <div className="text-[10px] text-ink-3 mt-0.5">{sub}</div>}
       </div>
     </div>
   );
@@ -36,30 +42,34 @@ export function StatsBar() {
   }, []);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <StatCard
-        icon={<Shield className="w-5 h-5 text-cyber-accent" />}
-        label="Scam Messages"
+        icon={<Database className="w-5 h-5" />}
+        label="Scam Vectors"
         value={stats?.total_messages ?? '—'}
-        color="bg-cyber-accent/10"
+        sub="in Qdrant corpus"
+        color="text-neon"
       />
       <StatCard
-        icon={<Network className="w-5 h-5 text-blue-400" />}
+        icon={<Network className="w-5 h-5" />}
         label="Fraud Families"
         value={stats?.total_families ?? '—'}
-        color="bg-blue-500/10"
+        sub="tracked clusters"
+        color="text-neon-2"
       />
       <StatCard
-        icon={<AlertTriangle className="w-5 h-5 text-threat-high" />}
-        label="Recent Threats"
+        icon={<AlertTriangle className="w-5 h-5" />}
+        label="2024–25 Threats"
         value={stats?.recent_threats ?? '—'}
-        color="bg-threat-high/10"
+        sub="active families"
+        color="text-threat-high"
       />
       <StatCard
-        icon={<Crosshair className="w-5 h-5 text-threat-low" />}
-        label="Detection Accuracy"
-        value="94.7%"
-        color="bg-threat-low/10"
+        icon={<Zap className="w-5 h-5" />}
+        label="Community Reports"
+        value={stats?.zero_day_count ?? 0}
+        sub="crowd-sourced intel"
+        color="text-threat-zeroday"
       />
     </div>
   );

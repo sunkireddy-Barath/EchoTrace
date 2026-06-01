@@ -1,80 +1,69 @@
 'use client';
 
-import { FileText, Image, Mic } from 'lucide-react';
+import { FileText, ImageIcon, Mic } from 'lucide-react';
 import type { SimilarMessage } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-const MODALITY_ICON: Record<string, React.ReactNode> = {
+const MODALITY_ICON = {
   text: <FileText className="w-3 h-3" />,
-  image: <Image className="w-3 h-3" />,
+  image: <ImageIcon className="w-3 h-3" />,
   audio: <Mic className="w-3 h-3" />,
 };
 
-function getScoreColor(score: number) {
-  if (score >= 0.82) return { bar: 'bg-threat-high', text: 'text-threat-high' };
-  if (score >= 0.62) return { bar: 'bg-threat-medium', text: 'text-threat-medium' };
-  return { bar: 'bg-threat-low', text: 'text-threat-low' };
+function scoreColor(s: number) {
+  if (s >= 0.82) return { bar: '#ff6b35', text: 'text-threat-high' };
+  if (s >= 0.62) return { bar: '#ffd60a', text: 'text-threat-medium' };
+  return { bar: '#30d158', text: 'text-threat-low' };
 }
 
-interface Props {
-  messages: SimilarMessage[];
-}
+interface Props { messages: SimilarMessage[]; }
 
 export function SimilarityMeter({ messages }: Props) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Semantically Similar Scams</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {messages.length === 0 && (
-          <p className="text-cyber-muted text-sm text-center py-4">No similar scams found.</p>
-        )}
-        {messages.map((msg, i) => {
-          const { bar, text } = getScoreColor(msg.similarity);
-          const pct = Math.round(msg.similarity * 100);
-          return (
-            <div
-              key={msg.id}
-              className="rounded-lg border border-cyber-border bg-cyber-bg p-3 space-y-2"
-            >
-              {/* Header row */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-mono text-cyber-muted w-4 flex-shrink-0">
-                    #{i + 1}
-                  </span>
-                  <Badge variant="secondary" className="gap-1 flex-shrink-0 text-xs">
-                    {MODALITY_ICON[msg.modality]}
-                    {msg.year}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs flex-shrink-0">
-                    {msg.family}
-                  </Badge>
-                </div>
-                <span className={cn('font-mono font-bold text-sm flex-shrink-0', text)}>
-                  {pct}%
+    <div className="space-y-2.5">
+      {messages.length === 0 && (
+        <p className="text-ink-3 text-sm text-center py-6">No similar scams found in corpus.</p>
+      )}
+      {messages.map((msg, i) => {
+        const { bar, text } = scoreColor(msg.similarity);
+        const pct = Math.round(msg.similarity * 100);
+        return (
+          <div
+            key={msg.id}
+            className="rounded-xl border border-border bg-surface-3 p-3 space-y-2.5 hover:border-border-2 transition-colors"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <span className="text-xs font-mono text-ink-3 w-5 flex-shrink-0">#{i + 1}</span>
+                <span className="flex items-center gap-1 text-[10px] border border-border rounded px-1.5 py-0.5 text-ink-3 flex-shrink-0">
+                  {MODALITY_ICON[msg.modality as keyof typeof MODALITY_ICON]}
+                  {msg.year}
                 </span>
+                <span className="text-[10px] border border-border rounded px-1.5 py-0.5 text-ink-2 truncate max-w-[120px]">
+                  {msg.family}
+                </span>
+                {msg.source_label && msg.source_label !== 'Unknown' && (
+                  <span className="text-[10px] text-ink-3 italic">{msg.source_label}</span>
+                )}
               </div>
-
-              {/* Progress bar */}
-              <Progress
-                value={pct}
-                barClassName={bar}
-                className="h-1.5"
-              />
-
-              {/* Message text */}
-              <p className="text-cyber-text/70 text-xs font-mono leading-relaxed line-clamp-2">
-                {msg.text}
-              </p>
+              <span className={cn('font-mono font-black text-base flex-shrink-0', text)}>
+                {pct}%
+              </span>
             </div>
-          );
-        })}
-      </CardContent>
-    </Card>
+
+            <div className="h-1.5 bg-void rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${bar}88, ${bar})` }}
+              />
+            </div>
+
+            <p className="text-xs font-mono text-ink-3 line-clamp-2 leading-relaxed">
+              {msg.text}
+            </p>
+          </div>
+        );
+      })}
+    </div>
   );
 }

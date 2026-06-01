@@ -2,30 +2,36 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, Clock, Zap } from 'lucide-react';
+import { ArrowLeft, Download, Clock, Zap, Dna, Share2 } from 'lucide-react';
 import type { AnalysisResult } from '@/lib/types';
 import { ThreatCard } from '@/components/ThreatCard';
 import { SimilarityMeter } from '@/components/SimilarityMeter';
 import { EvolutionTimeline } from '@/components/EvolutionTimeline';
 import { ThreatGraph } from '@/components/ThreatGraph';
-import { Button } from '@/components/ui/button';
+import { ZeroDayAlert } from '@/components/ZeroDayAlert';
+import { GenomeRadar } from '@/components/GenomeRadar';
+import { cn } from '@/lib/utils';
+
+function SectionHeader({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div className="mb-3">
+      <div className="text-[10px] text-ink-3 uppercase tracking-widest font-mono mb-0.5">{title}</div>
+      {sub && <div className="text-xs text-ink-3">{sub}</div>}
+    </div>
+  );
+}
 
 export default function ResultsPage() {
   const router = useRouter();
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [timestamp] = useState(() => new Date().toLocaleString());
+  const [ts] = useState(() => new Date().toLocaleString('en-US', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  }));
 
   useEffect(() => {
     const raw = localStorage.getItem('echotrace_result');
-    if (!raw) {
-      router.push('/');
-      return;
-    }
-    try {
-      setResult(JSON.parse(raw));
-    } catch {
-      router.push('/');
-    }
+    if (!raw) { router.push('/analyze'); return; }
+    try { setResult(JSON.parse(raw)); } catch { router.push('/analyze'); }
   }, [router]);
 
   const handleExport = () => {
@@ -41,94 +47,148 @@ export default function ResultsPage() {
 
   if (!result) {
     return (
-      <div className="min-h-screen cyber-grid flex items-center justify-center">
+      <div className="min-h-screen bg-grid-pattern flex items-center justify-center">
         <div className="text-center space-y-3">
-          <Zap className="w-10 h-10 text-cyber-accent mx-auto animate-pulse" />
-          <p className="text-cyber-muted font-mono text-sm">Loading analysis...</p>
+          <Zap className="w-10 h-10 text-neon mx-auto animate-pulse" />
+          <p className="text-ink-3 font-mono text-sm">Loading intelligence report...</p>
         </div>
       </div>
     );
   }
 
+  const threatBorderMap: Record<string, string> = {
+    HIGH: 'border-l-threat-high',
+    MEDIUM: 'border-l-yellow-500',
+    LOW: 'border-l-threat-low',
+    'ZERO-DAY': 'border-l-threat-zeroday',
+  };
+
   return (
-    <div className="min-h-screen cyber-grid">
-      {/* Top bar */}
-      <div className="sticky top-0 z-50 border-b border-cyber-border bg-cyber-bg/90 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
+    <div className="min-h-screen bg-grid-pattern">
+      {/* Topbar */}
+      <div className="sticky top-0 z-30 border-b border-border bg-void/90 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-5 py-2.5 flex items-center gap-3">
+          <button
+            onClick={() => router.push('/analyze')}
+            className="flex items-center gap-1.5 text-ink-3 hover:text-ink text-sm transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             New Analysis
-          </Button>
+          </button>
 
-          <div className="flex items-center gap-2 text-xs text-cyber-muted font-mono">
-            <Clock className="w-3 h-3" />
-            <span className="hidden sm:inline">{timestamp}</span>
+          <div className="flex-1 flex items-center gap-2 justify-center">
+            <span className={cn(
+              'text-xs font-black font-mono px-2.5 py-1 rounded border-l-2',
+              result.threat_level === 'HIGH' ? 'bg-threat-high/10 text-threat-high border-l-threat-high' :
+              result.threat_level === 'MEDIUM' ? 'bg-yellow-500/10 text-threat-medium border-l-yellow-500' :
+              result.threat_level === 'ZERO-DAY' ? 'bg-threat-zeroday/10 text-threat-zeroday border-l-threat-zeroday' :
+              'bg-threat-low/10 text-threat-low border-l-threat-low',
+            )}>
+              {result.threat_level}
+            </span>
+            <span className="text-xs text-ink-2 font-medium">{result.detected_family}</span>
+            <span className="text-xs text-ink-3 font-mono">·</span>
+            <span className="text-xs text-ink-3 font-mono">{Math.round(result.threat_score * 100)}% match</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-cyber-muted font-mono hidden md:inline">
-              {result.detected_family}
-            </span>
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download className="w-4 h-4" />
+            <div className="flex items-center gap-1.5 text-xs text-ink-3 font-mono hidden sm:flex">
+              <Clock className="w-3 h-3" />{ts}
+            </div>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 text-xs border border-border px-3 py-1.5 rounded-lg text-ink-2 hover:border-border-2 hover:text-ink transition-all"
+            >
+              <Download className="w-3.5 h-3.5" />
               Export
-            </Button>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Header banner */}
-      <div className="border-b border-cyber-border bg-cyber-card">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Zap className="w-5 h-5 text-cyber-accent" />
-            <div>
-              <h1 className="text-base font-bold text-cyber-text font-mono">
-                EchoTrace Threat Intelligence Report
-              </h1>
-              <p className="text-xs text-cyber-muted mt-0.5">
-                Powered by Qdrant semantic vector search · {result.similar_messages.length} similar scams found
-              </p>
+      <div className="max-w-7xl mx-auto px-5 py-7 animate-fade-up">
+        {/* Zero-Day alert - full width if triggered */}
+        {result.zero_day.is_zero_day && (
+          <div className="mb-6">
+            <ZeroDayAlert alert={result.zero_day} />
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-[1fr_1fr] gap-5">
+          {/* ── Left column ── */}
+          <div className="space-y-5">
+            {/* Threat card */}
+            <ThreatCard result={result} />
+
+            {/* Zero-day (compact, if not zero-day) */}
+            {!result.zero_day.is_zero_day && (
+              <ZeroDayAlert alert={result.zero_day} />
+            )}
+
+            {/* Semantic Genome */}
+            <div className="rounded-2xl border border-border bg-surface-2 overflow-hidden">
+              <div className="px-5 pt-4 pb-3 border-b border-border flex items-center gap-3">
+                <Dna className="w-4 h-4 text-neon" />
+                <div>
+                  <div className="text-[10px] text-ink-3 uppercase tracking-widest mb-0.5">Semantic Genome</div>
+                  <div className="text-sm font-bold text-ink">Psychological Attack Profile</div>
+                </div>
+              </div>
+              <div className="p-5">
+                <GenomeRadar genome={result.genome} />
+              </div>
+              <div className="px-5 py-3 bg-surface-3/20 border-t border-border">
+                <p className="text-[10px] text-ink-3">
+                  8 psychological manipulation dimensions scored using Qdrant probe embedding similarity.
+                  Dominant vector: <span className="text-neon">{result.genome.dominant_vector}</span>
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-8 animate-slide-up">
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left column */}
-          <div className="space-y-6">
-            <ThreatCard result={result} />
-            <SimilarityMeter messages={result.similar_messages} />
-          </div>
+          {/* ── Right column ── */}
+          <div className="space-y-5">
+            {/* Similar messages */}
+            <div className="rounded-2xl border border-border bg-surface-2 overflow-hidden">
+              <div className="px-5 pt-4 pb-3 border-b border-border">
+                <SectionHeader
+                  title="Semantically Similar Scams"
+                  sub="Nearest Qdrant vector neighbors — same intent, different wording"
+                />
+              </div>
+              <div className="p-4">
+                <SimilarityMeter messages={result.similar_messages} />
+              </div>
+            </div>
 
-          {/* Right column */}
-          <div className="space-y-6">
+            {/* Evolution */}
             <EvolutionTimeline
               timeline={result.evolution_timeline}
               family={result.detected_family}
             />
+
+            {/* Threat graph */}
             <ThreatGraph graphData={result.graph_data} />
           </div>
         </div>
 
-        {/* Bottom context note */}
-        <div className="mt-8 rounded-xl border border-cyber-border bg-cyber-card p-5">
+        {/* Bottom — Qdrant intelligence note */}
+        <div className="mt-6 rounded-2xl border border-neon/20 bg-neon/5 p-5">
           <div className="flex gap-4">
-            <Zap className="w-5 h-5 text-cyber-accent flex-shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-cyber-text">Why EchoTrace uses Qdrant</h3>
-              <p className="text-cyber-muted text-sm leading-relaxed">
-                Traditional keyword detection misses scams that change wording. EchoTrace stores all scam messages
-                as 384-dimensional semantic vectors in Qdrant. When you submit content, it is embedded by
-                SentenceTransformers and searched against the corpus using cosine similarity — finding semantically
-                identical fraud even when every word is different. The evolution timeline and mutation graph are
-                built entirely from Qdrant query results.
+            <Zap className="w-5 h-5 text-neon flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-ink mb-1">How EchoTrace uses Qdrant</p>
+              <p className="text-xs text-ink-2 leading-relaxed">
+                All {result.similar_messages.length} similar scams were retrieved from Qdrant&apos;s HNSW vector
+                index (INT8 quantized, 384-dim cosine space) in milliseconds. The evolution timeline uses a
+                family-filtered <code className="text-neon font-mono">query_points()</code> call sorted by year.
+                The Semantic Genome is computed by dot-product against 8 pre-embedded psychological probe vectors.
+                No keyword matching — pure semantic vector intelligence.
               </p>
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
