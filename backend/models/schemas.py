@@ -162,6 +162,12 @@ class AnalysisResult(BaseModel):
     risk_indicators: list[str]   # Plain-English risk flags
     psychological_relatives: list[PsychologicalRelative]
     insight_text: str
+    zero_day_detected: bool
+    closest_family: str
+    threat_status: str
+    incubation_count: int
+    incubation_summary: str
+    proto_family: Optional[str] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

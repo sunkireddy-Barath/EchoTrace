@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-ZERO_DAY_THRESHOLD = 0.52   # Below this = potential new fraud family
+ZERO_DAY_THRESHOLD = 0.45   # Below this = potential new fraud family
 
 
 def _compute_threat_level(score: float, is_zero_day: bool) -> str:
@@ -139,10 +139,93 @@ class AnalysisService:
         global_max_similarity = max(family_max_scores.values(), default=0.0)
         is_zero_day = global_max_similarity < ZERO_DAY_THRESHOLD
 
+        zero_day_detected = is_zero_day
+        novelty_score_percentage = round((1.0 - global_max_similarity) * 100, 2)
+        closest_fam = max(family_max_scores, key=family_max_scores.get) if family_max_scores else "None"
+        
+        if is_zero_day:
+            threat_status = "EMERGING VARIANT"
+            assigned_proto = None
+            for r in results:
+                fam = r.payload.get("scam_family", "")
+                if fam.startswith("emerging_") and float(r.score) >= 0.40:
+                    assigned_proto = fam
+                    break
+            
+            if not assigned_proto:
+                fam_stats = self.qdrant.get_family_stats()
+                existing_nums = []
+                for stat in fam_stats:
+                    fam_name = stat.get("family", "")
+                    if fam_name.startswith("emerging_"):
+                        try:
+                            num = int(fam_name.split("_")[1])
+                            existing_nums.append(num)
+                        except (IndexError, ValueError):
+                            pass
+                next_num = max(existing_nums, default=0) + 1
+                assigned_proto = f"emerging_{next_num:03d}"
+            
+            from qdrant_client.http import models as qmodels
+            try:
+                cnt_res = self.qdrant.client.count(
+                    collection_name=self.qdrant.scam_messages,
+                    count_filter=qmodels.Filter(
+                        must=[
+                            qmodels.FieldCondition(
+                                key="scam_family",
+                                match=qmodels.MatchValue(value=assigned_proto)
+                            )
+                        ]
+                    )
+                )
+                existing_cnt = cnt_res.count
+            except Exception:
+                existing_cnt = 0
+            
+            incubation_count = existing_cnt + 1
+            incubation_summary = f"Accumulating pattern. {incubation_count} similar reports matching proto-family {assigned_proto} have been captured in the system radar."
+            if incubation_count == 1:
+                incubation_summary = "First seen today. No other occurrences of this pattern in the database yet. Monitoring for future mutations."
+
+            import uuid
+            from datetime import datetime
+            new_pt_id = uuid.uuid4()
+            new_payload = {
+                "message_text": extracted_text,
+                "scam_family": assigned_proto,
+                "year": datetime.now().year,
+                "cluster_id": 999,
+                "confidence_score": round(global_max_similarity, 4),
+                "modality": modality,
+                "source_label": "System Radar",
+                "is_community": False,
+            }
+            self.qdrant.upsert_message(new_pt_id, query_vector, new_payload)
+            
+            detected_family = assigned_proto
+            threat_score = global_max_similarity
+            cluster_id = 999
+        else:
+            threat_status = "STABLE"
+            assigned_proto = None
+            incubation_count = 0
+            incubation_summary = "This threat pattern is stable and matches known scam campaign definitions."
+            
+            if results:
+                top_families = [r.payload.get("scam_family", "Unknown") for r in results[:3]]
+                detected_family = Counter(top_families).most_common(1)[0][0]
+                threat_score = float(results[0].score)
+                cluster_id = int(results[0].payload.get("cluster_id", 0))
+            else:
+                detected_family = "Unknown"
+                threat_score = 0.0
+                cluster_id = 0
+
         zero_day_alert = ZeroDayAlert(
             is_zero_day=is_zero_day,
             novelty_score=round(1.0 - global_max_similarity, 4),
-            closest_family=max(family_max_scores, key=family_max_scores.get) if family_max_scores else "None",
+            closest_family=closest_fam,
             closest_similarity=round(global_max_similarity, 4),
             alert_message=(
                 "⚠ EMERGING THREAT: This content does not match any known fraud family with sufficient confidence. "
@@ -151,17 +234,6 @@ class AnalysisService:
                 "Pattern matched to known fraud family database."
             ),
         )
-
-        # ── Step 5: Detected family (majority vote, top-3) ────────────────
-        if results:
-            top_families = [r.payload.get("scam_family", "Unknown") for r in results[:3]]
-            detected_family = Counter(top_families).most_common(1)[0][0]
-            threat_score = float(results[0].score)
-            cluster_id = int(results[0].payload.get("cluster_id", 0))
-        else:
-            detected_family = "Unknown"
-            threat_score = 0.0
-            cluster_id = 0
 
         threat_level = _compute_threat_level(threat_score, is_zero_day)
 
@@ -295,8 +367,14 @@ class AnalysisService:
             graph_data=graph_data,
             genome=genome,
             zero_day=zero_day_alert,
-            novelty_score=round(1.0 - global_max_similarity, 4),
+            novelty_score=novelty_score_percentage,
             risk_indicators=risk_indicators,
             psychological_relatives=psychological_relatives,
             insight_text=insight_text,
+            zero_day_detected=zero_day_detected,
+            closest_family=closest_fam,
+            threat_status=threat_status,
+            incubation_count=incubation_count,
+            incubation_summary=incubation_summary,
+            proto_family=assigned_proto,
         )
