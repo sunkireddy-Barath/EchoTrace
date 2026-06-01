@@ -1,0 +1,25 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.6
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+aiofiles==24.1.0
+httpx==0.28.1
+
+# Vector + Embeddings
+qdrant-client==1.13.3
+sentence-transformers==3.3.1
+
+# ML
+scikit-learn==1.6.1
+numpy==1.26.4
+scipy==1.14.1
+networkx==3.4.2
+
+# Multimodal
+easyocr==1.7.2
+openai-whisper==20240930
+
+# Utilities
+Pillow==11.1.0
+torch==2.2.0
