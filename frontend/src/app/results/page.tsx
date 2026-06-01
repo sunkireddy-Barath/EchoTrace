@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, Clock, Zap, Dna, Share2, Brain, GitBranch } from 'lucide-react';
+import { ArrowLeft, Download, Clock, Zap, Dna, Brain, GitBranch, Loader2 } from 'lucide-react';
 import type { AnalysisResult } from '@/lib/types';
 import { ThreatCard } from '@/components/ThreatCard';
 import { SimilarityMeter } from '@/components/SimilarityMeter';
@@ -10,6 +10,7 @@ import { EvolutionTimeline } from '@/components/EvolutionTimeline';
 import { ThreatGraph } from '@/components/ThreatGraph';
 import { ZeroDayAlert } from '@/components/ZeroDayAlert';
 import { GenomeRadar } from '@/components/GenomeRadar';
+import { ThreatBriefTemplate } from '@/components/ThreatBriefTemplate';
 import { cn } from '@/lib/utils';
 
 function SectionHeader({ title, sub }: { title: string; sub?: string }) {
@@ -24,9 +25,14 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
 export default function ResultsPage() {
   const router = useRouter();
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const briefRef = useRef<HTMLDivElement>(null);
   const [ts] = useState(() => new Date().toLocaleString('en-US', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   }));
+  const [threatId] = useState(() =>
+    'TI-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+  );
 
   useEffect(() => {
     const raw = localStorage.getItem('echotrace_result');
@@ -34,15 +40,18 @@ export default function ResultsPage() {
     try { setResult(JSON.parse(raw)); } catch { router.push('/analyze'); }
   }, [router]);
 
-  const handleExport = () => {
-    if (!result) return;
-    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `echotrace-${result.detected_family.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = async () => {
+    if (!result || !briefRef.current) return;
+    setIsPdfLoading(true);
+    try {
+      const { exportThreatBriefPdf } = await import('@/lib/exportPdf');
+      const slug = result.detected_family.replace(/\s+/g, '-').toLowerCase();
+      await exportThreatBriefPdf(briefRef.current, `echotrace-brief-${slug}-${Date.now()}`);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setIsPdfLoading(false);
+    }
   };
 
   if (!result) {
@@ -64,6 +73,7 @@ export default function ResultsPage() {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-grid-pattern">
       {/* Topbar */}
       <div className="sticky top-0 z-30 border-b border-border bg-void/90 backdrop-blur-sm">
@@ -98,10 +108,13 @@ export default function ResultsPage() {
             </div>
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 text-xs border border-border px-3 py-1.5 rounded-lg text-ink-2 hover:border-border-2 hover:text-ink transition-all"
+              disabled={isPdfLoading}
+              className="flex items-center gap-1.5 text-xs border border-neon/40 bg-neon/5 px-3 py-1.5 rounded-lg text-neon hover:bg-neon/10 hover:border-neon/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Download className="w-3.5 h-3.5" />
-              Export
+              {isPdfLoading
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Download className="w-3.5 h-3.5" />}
+              {isPdfLoading ? 'Generating…' : 'Export Brief'}
             </button>
           </div>
         </div>
@@ -246,5 +259,27 @@ export default function ResultsPage() {
         </div>
       </div>
     </div>
+
+    {result && (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: '-9999px',
+          zIndex: -1,
+          pointerEvents: 'none',
+          visibility: 'hidden',
+        }}
+        aria-hidden="true"
+      >
+        <ThreatBriefTemplate
+          ref={briefRef}
+          result={result}
+          timestamp={ts}
+          threatId={threatId}
+        />
+      </div>
+    )}
+    </>
   );
 }
