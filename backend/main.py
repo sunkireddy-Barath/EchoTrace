@@ -114,3 +114,5 @@ async def root():
         ],
         "docs": "/docs",
     }
+
+# Reload trigger

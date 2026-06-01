@@ -262,6 +262,7 @@ export default function ResultsPage() {
 
     {result && (
       <div
+        data-brief-wrapper
         style={{
           position: 'fixed',
           top: 0,
@@ -269,11 +270,13 @@ export default function ResultsPage() {
           zIndex: -1,
           pointerEvents: 'none',
           visibility: 'hidden',
+          overflow: 'visible',
         }}
         aria-hidden="true"
       >
         <ThreatBriefTemplate
           ref={briefRef}
+          id="threat-brief-export"
           result={result}
           timestamp={ts}
           threatId={threatId}

@@ -7,6 +7,7 @@ interface Props {
   result: AnalysisResult;
   timestamp: string;
   threatId: string;
+  id?: string;
 }
 
 // ── Design tokens (inline — html2canvas reads computed styles) ────────────────
@@ -83,7 +84,7 @@ function Divider() {
 
 // The main template — rendered off-screen, captured by html2canvas
 export const ThreatBriefTemplate = forwardRef<HTMLDivElement, Props>(
-  function ThreatBriefTemplate({ result, timestamp, threatId }, ref) {
+  function ThreatBriefTemplate({ result, timestamp, threatId, id }, ref) {
     const stage = result.variant_stage ?? (result.zero_day?.is_zero_day ? 'emerging' : 'known');
     const stageColor   = STAGE_COLOR[stage] ?? C.neon;
     const threatColor  = THREAT_COLOR[result.threat_level] ?? C.ink;
@@ -94,7 +95,9 @@ export const ThreatBriefTemplate = forwardRef<HTMLDivElement, Props>(
     return (
       <div
         ref={ref}
+        id={id}
         style={{
+          display: 'block',
           width: 794,          // ~A4 width at 96 dpi
           background: C.bg,
           fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
