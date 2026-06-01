@@ -64,12 +64,15 @@ export interface GenomeData {
 }
 
 // ── Novel: Zero-Day Detection ─────────────────────────────────────────────
+export type VariantStage = 'known' | 'evolving' | 'emerging';
+
 export interface ZeroDayAlert {
   is_zero_day: boolean;
   novelty_score: number;
   closest_family: string;
   closest_similarity: number;
   alert_message: string;
+  variant_stage: VariantStage;
 }
 
 // ── Novel: Evolution Velocity ─────────────────────────────────────────────
@@ -104,6 +107,14 @@ export interface AnalysisResult {
   risk_indicators: string[];
   psychological_relatives: PsychologicalRelative[];
   insight_text: string;
+  // Zero-Day / variant fields
+  zero_day_detected: boolean;
+  closest_family: string;
+  threat_status: string;
+  variant_stage: VariantStage;
+  incubation_count: number;
+  incubation_summary: string;
+  proto_family?: string | null;
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────

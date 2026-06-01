@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertOctagon, ShieldQuestion, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, GitBranch, AlertOctagon, ShieldQuestion } from 'lucide-react';
 import type { ZeroDayAlert as ZeroDayAlertType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -8,57 +8,103 @@ interface Props {
   alert: ZeroDayAlertType;
 }
 
+// ── Per-stage visual configuration ───────────────────────────────────────────
+const STAGE_CONFIG = {
+  known: {
+    icon: CheckCircle2,
+    borderClass: 'border-emerald-500/40',
+    bgClass: 'bg-emerald-500/5',
+    iconClass: 'text-emerald-400',
+    badgeClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    titleClass: 'text-emerald-400',
+    metricClass: 'text-emerald-400',
+    label: 'KNOWN THREAT',
+    badge: 'CONFIRMED LINEAGE',
+    subtitle: 'Known scam family. Strong alignment with fraud database.',
+  },
+  evolving: {
+    icon: GitBranch,
+    borderClass: 'border-amber-500/40',
+    bgClass: 'bg-amber-500/5',
+    iconClass: 'text-amber-400',
+    badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    titleClass: 'text-amber-400',
+    metricClass: 'text-amber-400',
+    label: 'EVOLVING VARIANT',
+    badge: 'MUTATION DETECTED',
+    subtitle: 'Semantic mutation detected. Moderate novelty within a known lineage.',
+  },
+  emerging: {
+    icon: AlertOctagon,
+    borderClass: 'border-rose-500/60',
+    bgClass: 'bg-gradient-to-r from-surface-2 to-rose-950/20',
+    iconClass: 'text-rose-400 animate-pulse',
+    badgeClass: 'bg-rose-500/20 text-rose-400 border-rose-500/40',
+    titleClass: 'text-rose-400',
+    metricClass: 'text-rose-400',
+    label: '⚠ EMERGING VARIANT',
+    badge: 'NEW CLUSTER',
+    subtitle: 'Low semantic alignment. Possible new scam cluster forming.',
+  },
+} as const;
+
 export function ZeroDayAlert({ alert }: Props) {
-  if (!alert.is_zero_day) {
-    return (
-      <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-2 p-4">
-        <CheckCircle2 className="w-5 h-5 text-threat-low flex-shrink-0 mt-0.5" />
-        <div>
-          <div className="text-sm font-semibold text-threat-low">Known Pattern Matched</div>
-          <p className="text-xs text-ink-3 mt-0.5">{alert.alert_message}</p>
-          <div className="flex items-center gap-3 mt-2 text-xs text-ink-3 font-mono">
-            <span>Closest: <span className="text-ink-2">{alert.closest_family}</span></span>
-            <span>Similarity: <span className="text-ink-2">{Math.round(alert.closest_similarity * 100)}%</span></span>
-            <span>Novelty: <span className="text-ink-2">{Math.round(alert.novelty_score * 100)}%</span></span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const stage = alert.variant_stage ?? (alert.is_zero_day ? 'emerging' : 'known');
+  const cfg = STAGE_CONFIG[stage];
+  const Icon = cfg.icon;
 
   return (
-    <div className={cn(
-      'rounded-xl border-2 p-5 border-threat-zeroday animate-zeroday',
-      'bg-gradient-to-r from-surface-2 to-purple-950/20',
-    )}>
-      <div className="flex items-start gap-4">
-        <div className="flex-shrink-0">
-          <AlertOctagon className="w-8 h-8 text-threat-zeroday animate-pulse" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-lg font-black text-threat-zeroday font-mono tracking-wider">
-              ⚠ ZERO-DAY THREAT
+    <div
+      className={cn(
+        'rounded-xl border-2 p-4',
+        cfg.borderClass,
+        cfg.bgClass,
+      )}
+    >
+      <div className="flex items-start gap-3">
+        {/* Icon */}
+        <Icon className={cn('w-6 h-6 flex-shrink-0 mt-0.5', cfg.iconClass)} />
+
+        {/* Body */}
+        <div className="flex-1 min-w-0">
+          {/* Title row */}
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className={cn('text-sm font-black font-mono tracking-wider', cfg.titleClass)}>
+              {cfg.label}
             </span>
-            <span className="text-xs bg-threat-zeroday/20 text-threat-zeroday border border-threat-zeroday/40 px-2 py-0.5 rounded-full font-mono">
-              NEW VARIANT
+            <span
+              className={cn(
+                'text-[10px] border px-2 py-0.5 rounded-full font-mono',
+                cfg.badgeClass,
+              )}
+            >
+              {cfg.badge}
             </span>
           </div>
-          <p className="text-sm text-ink-2 leading-relaxed">{alert.alert_message}</p>
-          <div className="grid grid-cols-3 gap-3 mt-4">
-            <div className="rounded-lg bg-surface-3/50 border border-border p-2.5 text-center">
-              <div className="text-xs text-ink-3 mb-1">Novelty Score</div>
-              <div className="text-xl font-black text-threat-zeroday font-mono">
+
+          {/* Subtitle */}
+          <p className="text-xs text-ink-3 leading-relaxed mb-3">{cfg.subtitle}</p>
+
+          {/* Alert message */}
+          <p className="text-xs text-ink-2 italic mb-3">{alert.alert_message}</p>
+
+          {/* Metrics strip */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg bg-surface-3/50 border border-border p-2 text-center">
+              <div className="text-[10px] text-ink-3 mb-1">Novelty Score</div>
+              <div className={cn('text-lg font-black font-mono', cfg.metricClass)}>
                 {Math.round(alert.novelty_score * 100)}%
               </div>
             </div>
-            <div className="rounded-lg bg-surface-3/50 border border-border p-2.5 text-center">
-              <div className="text-xs text-ink-3 mb-1">Closest Family</div>
-              <div className="text-xs font-semibold text-ink-2 mt-1">{alert.closest_family}</div>
+            <div className="rounded-lg bg-surface-3/50 border border-border p-2 text-center">
+              <div className="text-[10px] text-ink-3 mb-1">Closest Family</div>
+              <div className="text-[11px] font-semibold text-ink-2 mt-1 truncate">
+                {alert.closest_family}
+              </div>
             </div>
-            <div className="rounded-lg bg-surface-3/50 border border-border p-2.5 text-center">
-              <div className="text-xs text-ink-3 mb-1">Max Similarity</div>
-              <div className="text-xl font-black text-ink-2 font-mono">
+            <div className="rounded-lg bg-surface-3/50 border border-border p-2 text-center">
+              <div className="text-[10px] text-ink-3 mb-1">Similarity</div>
+              <div className="text-lg font-black font-mono text-ink-2">
                 {Math.round(alert.closest_similarity * 100)}%
               </div>
             </div>
@@ -66,12 +112,15 @@ export function ZeroDayAlert({ alert }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2">
-        <ShieldQuestion className="w-4 h-4 text-threat-zeroday flex-shrink-0" />
-        <p className="text-xs text-ink-3">
-          Consider submitting this to the Community Intel Feed to help protect others.
-        </p>
-      </div>
+      {/* Footer — only for emerging */}
+      {stage === 'emerging' && (
+        <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
+          <ShieldQuestion className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+          <p className="text-[11px] text-ink-3">
+            Consider submitting this to the Community Intel Feed to help protect others.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

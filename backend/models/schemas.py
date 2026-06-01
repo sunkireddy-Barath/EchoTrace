@@ -101,6 +101,7 @@ class ZeroDayAlert(BaseModel):
     closest_family: str
     closest_similarity: float
     alert_message: str
+    variant_stage: Literal["known", "evolving", "emerging"] = "known"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -165,6 +166,7 @@ class AnalysisResult(BaseModel):
     zero_day_detected: bool
     closest_family: str
     threat_status: str
+    variant_stage: Literal["known", "evolving", "emerging"] = "known"
     incubation_count: int
     incubation_summary: str
     proto_family: Optional[str] = None

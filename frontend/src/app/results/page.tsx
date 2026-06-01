@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, Clock, Zap, Dna, Share2, Brain } from 'lucide-react';
+import { ArrowLeft, Download, Clock, Zap, Dna, Share2, Brain, GitBranch } from 'lucide-react';
 import type { AnalysisResult } from '@/lib/types';
 import { ThreatCard } from '@/components/ThreatCard';
 import { SimilarityMeter } from '@/components/SimilarityMeter';
@@ -79,10 +79,11 @@ export default function ResultsPage() {
           <div className="flex-1 flex items-center gap-2 justify-center">
             <span className={cn(
               'text-xs font-black font-mono px-2.5 py-1 rounded border-l-2',
-              result.threat_level === 'HIGH' ? 'bg-threat-high/10 text-threat-high border-l-threat-high' :
-              result.threat_level === 'MEDIUM' ? 'bg-yellow-500/10 text-threat-medium border-l-yellow-500' :
-              result.threat_level === 'ZERO-DAY' ? 'bg-threat-zeroday/10 text-threat-zeroday border-l-threat-zeroday' :
-              'bg-threat-low/10 text-threat-low border-l-threat-low',
+              result.threat_level === 'HIGH'     ? 'bg-threat-high/10 text-threat-high border-l-threat-high' :
+              result.threat_level === 'MEDIUM'   ? 'bg-yellow-500/10 text-threat-medium border-l-yellow-500' :
+              result.threat_level === 'ZERO-DAY' ? 'bg-rose-500/10 text-rose-400 border-l-rose-500' :
+              result.variant_stage === 'evolving' ? 'bg-amber-500/10 text-amber-400 border-l-amber-500' :
+              'bg-emerald-500/10 text-emerald-400 border-l-emerald-500',
             )}>
               {result.threat_level}
             </span>
@@ -107,13 +108,6 @@ export default function ResultsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-5 py-7 animate-fade-up">
-        {/* Zero-Day alert - full width if triggered */}
-        {result.zero_day.is_zero_day && (
-          <div className="mb-6">
-            <ZeroDayAlert alert={result.zero_day} />
-          </div>
-        )}
-
         <div className="grid lg:grid-cols-[1fr_1fr] gap-5">
           {/* ── Left column ── */}
           <div className="space-y-5">
@@ -135,9 +129,15 @@ export default function ResultsPage() {
               </div>
             </div>
 
-            {/* Zero-day (compact, if not zero-day) */}
-            {!result.zero_day.is_zero_day && (
-              <ZeroDayAlert alert={result.zero_day} />
+            {/* Threat Radar (all variants — always show) */}
+            <ZeroDayAlert alert={result.zero_day} />
+
+            {/* Incubation summary for evolving/emerging */}
+            {(result.variant_stage === 'evolving' || result.variant_stage === 'emerging') && result.incubation_summary && (
+              <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-2 p-3.5">
+                <GitBranch className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-ink-3 leading-relaxed">{result.incubation_summary}</p>
+              </div>
             )}
 
             {/* Semantic Genome */}

@@ -37,11 +37,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-ZERO_DAY_THRESHOLD = 0.45   # Below this = potential new fraud family
+# ── 3-level threat intelligence thresholds ───────────────────────────────────
+KNOWN_THRESHOLD   = 0.75   # >= 0.75  → KNOWN THREAT
+EVOLVING_THRESHOLD = 0.58  # >= 0.58  → EVOLVING VARIANT
+# < 0.58  → EMERGING VARIANT (zero-day)
 
 
-def _compute_threat_level(score: float, is_zero_day: bool) -> str:
-    if is_zero_day:
+def _classify_variant(similarity: float) -> tuple[str, str, bool]:
+    """Return (threat_status, variant_stage, is_zero_day)."""
+    if similarity >= KNOWN_THRESHOLD:
+        return "KNOWN THREAT", "known", False
+    elif similarity >= EVOLVING_THRESHOLD:
+        return "EVOLVING VARIANT", "evolving", False
+    else:
+        return "EMERGING VARIANT", "emerging", True
+
+
+def _compute_threat_level(score: float, variant_stage: str) -> str:
+    if variant_stage == "emerging":
         return "ZERO-DAY"
     if score >= 0.82:
         return "HIGH"
@@ -134,38 +147,47 @@ class AnalysisService:
         # ── Step 3: Qdrant semantic search — core detection ───────────────
         results = self.qdrant.semantic_search(query_vector, limit=10)
 
-        # ── Step 4: Zero-day detection via cross-family scoring ───────────
+        # ── Step 4: 3-level threat intelligence classification ────────────
         family_max_scores = self.qdrant.semantic_search_all_families(query_vector)
         global_max_similarity = max(family_max_scores.values(), default=0.0)
-        is_zero_day = global_max_similarity < ZERO_DAY_THRESHOLD
+        threat_status, variant_stage, is_zero_day = _classify_variant(global_max_similarity)
 
         zero_day_detected = is_zero_day
         novelty_score_percentage = round((1.0 - global_max_similarity) * 100, 2)
         closest_fam = max(family_max_scores, key=family_max_scores.get) if family_max_scores else "None"
-        
-        if is_zero_day:
-            threat_status = "EMERGING VARIANT"
-            assigned_proto = None
+
+        # ── Dynamic alert message per tier ───────────────────────────────────
+        _alert_messages = {
+            "known":    "Strong alignment with known fraud lineage.",
+            "evolving": "Semantic mutation detected within an existing scam lineage.",
+            "emerging": "Weak alignment to known scam families. Possible emerging threat pattern.",
+        }
+        alert_message = _alert_messages[variant_stage]
+
+        # ── Proto-family clustering — EMERGING only ───────────────────────
+        assigned_proto = None
+        incubation_count = 0
+        incubation_summary = ""
+
+        if variant_stage == "emerging":
+            # Try to match an existing emerging_ proto-family
             for r in results:
                 fam = r.payload.get("scam_family", "")
                 if fam.startswith("emerging_") and float(r.score) >= 0.40:
                     assigned_proto = fam
                     break
-            
+
             if not assigned_proto:
                 fam_stats = self.qdrant.get_family_stats()
-                existing_nums = []
-                for stat in fam_stats:
-                    fam_name = stat.get("family", "")
-                    if fam_name.startswith("emerging_"):
-                        try:
-                            num = int(fam_name.split("_")[1])
-                            existing_nums.append(num)
-                        except (IndexError, ValueError):
-                            pass
+                existing_nums = [
+                    int(stat["family"].split("_")[1])
+                    for stat in fam_stats
+                    if stat.get("family", "").startswith("emerging_")
+                    and stat["family"].split("_")[1].isdigit()
+                ]
                 next_num = max(existing_nums, default=0) + 1
                 assigned_proto = f"emerging_{next_num:03d}"
-            
+
             from qdrant_client.http import models as qmodels
             try:
                 cnt_res = self.qdrant.client.count(
@@ -182,16 +204,17 @@ class AnalysisService:
                 existing_cnt = cnt_res.count
             except Exception:
                 existing_cnt = 0
-            
+
             incubation_count = existing_cnt + 1
-            incubation_summary = f"Accumulating pattern. {incubation_count} similar reports matching proto-family {assigned_proto} have been captured in the system radar."
-            if incubation_count == 1:
-                incubation_summary = "First seen today. No other occurrences of this pattern in the database yet. Monitoring for future mutations."
+            incubation_summary = (
+                "First seen today. No other occurrences of this pattern in the database yet. Monitoring for future mutations."
+                if incubation_count == 1 else
+                f"Accumulating pattern. {incubation_count} similar reports matching proto-family {assigned_proto} have been captured in the system radar."
+            )
 
             import uuid
             from datetime import datetime
-            new_pt_id = uuid.uuid4()
-            new_payload = {
+            self.qdrant.upsert_message(uuid.uuid4(), query_vector, {
                 "message_text": extracted_text,
                 "scam_family": assigned_proto,
                 "year": datetime.now().year,
@@ -200,18 +223,14 @@ class AnalysisService:
                 "modality": modality,
                 "source_label": "System Radar",
                 "is_community": False,
-            }
-            self.qdrant.upsert_message(new_pt_id, query_vector, new_payload)
-            
+            })
+
             detected_family = assigned_proto
             threat_score = global_max_similarity
             cluster_id = 999
-        else:
-            threat_status = "STABLE"
-            assigned_proto = None
-            incubation_count = 0
-            incubation_summary = "This threat pattern is stable and matches known scam campaign definitions."
-            
+
+        elif variant_stage == "evolving":
+            incubation_summary = "Semantic mutation detected. This variant shares lineage with a known scam family but shows structural drift."
             if results:
                 top_families = [r.payload.get("scam_family", "Unknown") for r in results[:3]]
                 detected_family = Counter(top_families).most_common(1)[0][0]
@@ -219,7 +238,19 @@ class AnalysisService:
                 cluster_id = int(results[0].payload.get("cluster_id", 0))
             else:
                 detected_family = "Unknown"
-                threat_score = 0.0
+                threat_score = global_max_similarity
+                cluster_id = 0
+
+        else:  # known
+            incubation_summary = "This threat pattern is stable and matches known scam campaign definitions."
+            if results:
+                top_families = [r.payload.get("scam_family", "Unknown") for r in results[:3]]
+                detected_family = Counter(top_families).most_common(1)[0][0]
+                threat_score = float(results[0].score)
+                cluster_id = int(results[0].payload.get("cluster_id", 0))
+            else:
+                detected_family = "Unknown"
+                threat_score = global_max_similarity
                 cluster_id = 0
 
         zero_day_alert = ZeroDayAlert(
@@ -227,15 +258,11 @@ class AnalysisService:
             novelty_score=round(1.0 - global_max_similarity, 4),
             closest_family=closest_fam,
             closest_similarity=round(global_max_similarity, 4),
-            alert_message=(
-                "⚠ EMERGING THREAT: This content does not match any known fraud family with sufficient confidence. "
-                "It may represent a new, previously undocumented scam variant."
-                if is_zero_day else
-                "Pattern matched to known fraud family database."
-            ),
+            alert_message=alert_message,
+            variant_stage=variant_stage,
         )
 
-        threat_level = _compute_threat_level(threat_score, is_zero_day)
+        threat_level = _compute_threat_level(threat_score, variant_stage)
 
         # ── Step 6: Similar messages ──────────────────────────────────────
         similar_messages = [
@@ -374,6 +401,7 @@ class AnalysisService:
             zero_day_detected=zero_day_detected,
             closest_family=closest_fam,
             threat_status=threat_status,
+            variant_stage=variant_stage,
             incubation_count=incubation_count,
             incubation_summary=incubation_summary,
             proto_family=assigned_proto,
