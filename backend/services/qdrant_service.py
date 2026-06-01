@@ -91,13 +91,15 @@ class QdrantService:
                     )
                 ]
             )
-        return self.client.search(
+        # qdrant-client >= 1.13 uses query_points() instead of deprecated search()
+        response = self.client.query_points(
             collection_name=self.scam_messages,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=query_filter,
             with_payload=True,
             limit=limit,
         )
+        return response.points
 
     def get_family_stats(self) -> list[dict]:
         all_points, _ = self.client.scroll(

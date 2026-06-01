@@ -109,7 +109,8 @@ export default function CytoscapeWrapper({ graphData }: Props) {
           numIter: 1000,
           animate: true,
           animationDuration: 600,
-        } as Parameters<typeof cytoscape>[0]['layout'],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
         userZoomingEnabled: true,
         userPanningEnabled: true,
         boxSelectionEnabled: false,
