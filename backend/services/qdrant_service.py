@@ -17,6 +17,9 @@ from typing import Optional
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
+from services.cache_service import invalidate_metadata_caches, metadata_cache
+from services.timing import timed
+
 logger = logging.getLogger(__name__)
 
 FAMILY_COLORS: dict[str, str] = {
@@ -120,6 +123,7 @@ class QdrantService:
             collection_name=self.scam_messages,
             points=[qmodels.PointStruct(id=str(point_id), vector=vector, payload=payload)],
         )
+        invalidate_metadata_caches()
 
     def upsert_messages_batch(
         self, points: list[tuple[uuid.UUID, list[float], dict]]
@@ -129,6 +133,7 @@ class QdrantService:
             for pid, vec, pay in points
         ]
         self.client.upsert(collection_name=self.scam_messages, points=structs)
+        invalidate_metadata_caches()
 
     def upsert_family_centroid(
         self, family_name: str, vector: list[float], count: int,
@@ -169,6 +174,7 @@ class QdrantService:
             collection_name=self.scam_messages,
             points=[qmodels.PointStruct(id=str(point_id), vector=vector, payload=payload)],
         )
+        invalidate_metadata_caches()
         return str(point_id)
 
     # ── Read operations ────────────────────────────────────────────────────
@@ -212,19 +218,20 @@ class QdrantService:
             must_not=must_not_filters if must_not_filters else None,
         ) if (filters or must_not_filters) else None
 
-        response = self.client.query_points(
-            collection_name=self.scam_messages,
-            query=query_vector,
-            query_filter=query_filter,
-            with_payload=True,
-            with_vectors=with_vectors,
-            limit=limit,
-        )
+        with timed("qdrant.search"):
+            response = self.client.query_points(
+                collection_name=self.scam_messages,
+                query=query_vector,
+                query_filter=query_filter,
+                with_payload=True,
+                with_vectors=with_vectors,
+                limit=limit,
+            )
         return response.points
 
-    def semantic_search_all_families(self, query_vector: list[float]) -> dict[str, float]:
-        """Return max similarity score per family — used for zero-day detection."""
-        results = self.semantic_search(query_vector, limit=20)
+    @staticmethod
+    def family_scores_from_results(results: list) -> dict[str, float]:
+        """Aggregate max cosine score per family from an existing search result set."""
         family_scores: dict[str, float] = {}
         for r in results:
             fam = r.payload.get("scam_family", "Unknown")
@@ -232,6 +239,50 @@ class QdrantService:
             if fam not in family_scores or score > family_scores[fam]:
                 family_scores[fam] = score
         return family_scores
+
+    def semantic_search_all_families(self, query_vector: list[float]) -> dict[str, float]:
+        """Return max similarity score per family — used for zero-day detection."""
+        results = self.semantic_search(query_vector, limit=20)
+        return self.family_scores_from_results(results)
+
+    def count_by_family(self, family: str) -> int:
+        try:
+            result = self.client.count(
+                collection_name=self.scam_messages,
+                count_filter=qmodels.Filter(
+                    must=[
+                        qmodels.FieldCondition(
+                            key="scam_family",
+                            match=qmodels.MatchValue(value=family),
+                        )
+                    ]
+                ),
+            )
+            return result.count
+        except Exception:
+            return 0
+
+    def get_cached_family_stats(self) -> list[dict]:
+        key = "family_stats"
+        cached = metadata_cache.get(key)
+        if cached is not None:
+            logger.debug("qdrant.cache_hit: family_stats")
+            return cached
+        with timed("qdrant.get_family_stats"):
+            data = self.get_family_stats()
+        metadata_cache.set(key, data)
+        return data
+
+    def get_cached_family_centroids(self) -> list[dict]:
+        key = "family_centroids"
+        cached = metadata_cache.get(key)
+        if cached is not None:
+            logger.debug("qdrant.cache_hit: family_centroids")
+            return cached
+        with timed("qdrant.get_family_centroids"):
+            data = self.get_all_family_centroids()
+        metadata_cache.set(key, data)
+        return data
 
     def get_family_stats(self) -> list[dict]:
         all_points, _ = self.client.scroll(
@@ -315,12 +366,13 @@ class QdrantService:
         return by_year
 
     def get_all_family_centroids(self) -> list[dict]:
-        all_points, _ = self.client.scroll(
-            collection_name=self.scam_families,
-            limit=100,
-            with_payload=True,
-            with_vectors=True,
-        )
+        with timed("qdrant.scroll_family_centroids"):
+            all_points, _ = self.client.scroll(
+                collection_name=self.scam_families,
+                limit=100,
+                with_payload=True,
+                with_vectors=True,
+            )
         return [
             {
                 "id": str(pt.id),

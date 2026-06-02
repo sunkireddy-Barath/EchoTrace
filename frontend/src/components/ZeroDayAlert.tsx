@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { CheckCircle2, GitBranch, AlertOctagon, ShieldQuestion } from 'lucide-react';
 import type { ZeroDayAlert as ZeroDayAlertType } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -48,7 +49,7 @@ const STAGE_CONFIG = {
   },
 } as const;
 
-export function ZeroDayAlert({ alert }: Props) {
+export const ZeroDayAlert = memo(function ZeroDayAlert({ alert }: Props) {
   const stage = alert.variant_stage ?? (alert.is_zero_day ? 'emerging' : 'known');
   const cfg = STAGE_CONFIG[stage];
   const Icon = cfg.icon;
@@ -123,4 +124,4 @@ export function ZeroDayAlert({ alert }: Props) {
       )}
     </div>
   );
-}
+});

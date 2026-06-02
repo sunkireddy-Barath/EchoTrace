@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Database, Network, Zap, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { DashboardStats } from '@/lib/types';
@@ -15,7 +15,7 @@ interface StatProps {
   glowClass?: string;
 }
 
-function StatCard({ icon, label, value, sub, color, glowClass }: StatProps) {
+const StatCard = memo(function StatCard({ icon, label, value, sub, color, glowClass }: StatProps) {
   return (
     <div className={cn(
       'rounded-xl border border-border bg-surface-2 p-4 flex items-center gap-4',
@@ -32,45 +32,53 @@ function StatCard({ icon, label, value, sub, color, glowClass }: StatProps) {
       </div>
     </div>
   );
-}
+});
 
-export function StatsBar() {
+export const StatsBar = memo(function StatsBar() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getStats().then(setStats).catch(() => null);
+    let cancelled = false;
+    api.getStats()
+      .then((data) => { if (!cancelled) setStats(data); })
+      .catch(() => null)
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
+
+  const placeholder = loading ? '…' : '—';
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <StatCard
         icon={<Database className="w-5 h-5" />}
         label="Scam Vectors"
-        value={stats?.total_messages ?? '—'}
+        value={stats?.total_messages ?? placeholder}
         sub="in Qdrant corpus"
         color="text-neon"
       />
       <StatCard
         icon={<Network className="w-5 h-5" />}
         label="Fraud Families"
-        value={stats?.total_families ?? '—'}
+        value={stats?.total_families ?? placeholder}
         sub="tracked clusters"
         color="text-neon-2"
       />
       <StatCard
         icon={<AlertTriangle className="w-5 h-5" />}
         label="2024–25 Threats"
-        value={stats?.recent_threats ?? '—'}
+        value={stats?.recent_threats ?? placeholder}
         sub="active families"
         color="text-threat-high"
       />
       <StatCard
         icon={<Zap className="w-5 h-5" />}
         label="Community Reports"
-        value={stats?.zero_day_count ?? 0}
+        value={stats?.zero_day_count ?? (loading ? '…' : 0)}
         sub="crowd-sourced intel"
         color="text-threat-zeroday"
       />
     </div>
   );
-}
+});

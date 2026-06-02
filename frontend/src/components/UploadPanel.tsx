@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import {
@@ -48,6 +48,7 @@ export function UploadPanel() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
 
   const onDrop = useCallback((files: File[]) => {
     if (files[0]) { setFile(files[0]); setError(''); }
@@ -57,12 +58,23 @@ export function UploadPanel() {
     onDrop,
     accept: TABS.find((t) => t.id === tab)?.accept || {},
     maxFiles: 1,
+    disabled: loading,
   });
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = useCallback(async () => {
     setError('');
-    if (tab === 'text' && !text.trim()) return setError('Enter a message to analyze.');
-    if (tab !== 'text' && !file) return setError('Upload a file to analyze.');
+    if (tab === 'text' && !text.trim()) {
+      setError('Enter a message to analyze.');
+      return;
+    }
+    if (tab !== 'text' && !file) {
+      setError('Upload a file to analyze.');
+      return;
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setLoading(true);
     try {
@@ -70,29 +82,35 @@ export function UploadPanel() {
       if (tab === 'text') form.append('text', text.trim());
       else form.append('file', file!);
 
-      const result = await api.analyze(form);
+      const result = await api.analyze(form, { signal: controller.signal });
       localStorage.setItem('echotrace_result', JSON.stringify(result));
       router.push('/results');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Analysis failed. Is the backend running?');
+      if (controller.signal.aborted) return;
+      const msg = e instanceof Error ? e.message : 'Analysis failed. Is the backend running?';
+      setError(msg);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [tab, text, file, router]);
 
   return (
     <div className="rounded-2xl border border-border bg-surface-2 overflow-hidden shadow-card">
-      {/* Tabs */}
       <div className="flex border-b border-border">
         {TABS.map((t) => (
           <button
             key={t.id}
+            type="button"
+            disabled={loading}
             onClick={() => { setTab(t.id); setFile(null); setError(''); }}
             className={cn(
               'flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-all',
               tab === t.id
                 ? 'text-neon-2 bg-neon/8 border-b-2 border-neon'
                 : 'text-ink-3 hover:text-ink-2 hover:bg-surface-3',
+              loading && 'pointer-events-none opacity-60',
             )}
           >
             {t.icon}
@@ -102,18 +120,19 @@ export function UploadPanel() {
       </div>
 
       <div className="p-5 space-y-4">
-        {/* Text input */}
         {tab === 'text' && (
           <div className="space-y-3">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
+              disabled={loading}
               placeholder="Paste suspicious message, phishing email, or scam text here..."
               rows={5}
               className={cn(
                 'w-full rounded-xl border border-border bg-void px-4 py-3',
                 'text-ink placeholder-ink-3/40 font-mono text-sm resize-none',
                 'focus:outline-none focus:border-neon/50 focus:ring-1 focus:ring-neon/20 transition-all',
+                loading && 'opacity-60',
               )}
             />
             <div className="flex flex-wrap gap-1.5 items-center">
@@ -121,8 +140,10 @@ export function UploadPanel() {
               {SAMPLES.map((s, i) => (
                 <button
                   key={i}
+                  type="button"
+                  disabled={loading}
                   onClick={() => setText(s)}
-                  className="text-[10px] text-neon/60 hover:text-neon border border-neon/20 hover:border-neon/50 rounded px-2 py-0.5 transition-colors font-mono"
+                  className="text-[10px] text-neon/60 hover:text-neon border border-neon/20 hover:border-neon/50 rounded px-2 py-0.5 transition-colors font-mono disabled:opacity-50"
                 >
                   Sample {i + 1}
                 </button>
@@ -131,7 +152,6 @@ export function UploadPanel() {
           </div>
         )}
 
-        {/* File drop */}
         {tab !== 'text' && (
           <div
             {...getRootProps()}
@@ -139,6 +159,7 @@ export function UploadPanel() {
               'rounded-xl border-2 border-dashed p-10 text-center cursor-pointer transition-all',
               isDragActive ? 'drop-zone-active' : 'border-border hover:border-border-2 hover:bg-surface-3/40',
               file && 'border-threat-low/50 bg-threat-low/5',
+              loading && 'pointer-events-none opacity-60',
             )}
           >
             <input {...getInputProps()} />
@@ -148,6 +169,7 @@ export function UploadPanel() {
                 <p className="text-sm font-semibold text-ink">{file.name}</p>
                 <p className="text-xs text-ink-3">{(file.size / 1024).toFixed(1)} KB — ready to analyze</p>
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setFile(null); }}
                   className="text-xs text-ink-3 hover:text-threat-high underline mt-1"
                 >
@@ -177,7 +199,6 @@ export function UploadPanel() {
           </div>
         )}
 
-        {/* Error */}
         {error && (
           <div className="flex items-start gap-2 rounded-xl bg-red-950/40 border border-threat-high/30 px-4 py-3 text-sm text-threat-high">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -185,21 +206,22 @@ export function UploadPanel() {
           </div>
         )}
 
-        {/* CTA button */}
         <button
+          type="button"
           onClick={handleAnalyze}
           disabled={loading}
+          aria-busy={loading}
           className={cn(
             'w-full h-12 rounded-xl font-semibold text-sm flex items-center justify-center gap-2.5 transition-all',
             loading
-              ? 'bg-surface-3 text-ink-3 cursor-not-allowed'
+              ? 'bg-surface-3 text-neon cursor-wait border border-neon/30'
               : 'bg-gradient-to-r from-neon to-indigo-500 text-white hover:from-neon/90 hover:to-indigo-500/90 glow-blue hover:shadow-neon-strong',
           )}
         >
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Searching Qdrant vectors...
+              Analyzing…
             </>
           ) : (
             <>

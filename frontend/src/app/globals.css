@@ -210,3 +210,26 @@ body {
 .terminal-block .hl-green  { color: rgba(74, 222, 128, 1); }
 .terminal-block .hl-purple { color: #a78bfa; }
 .terminal-block .hl-slate  { color: #64748b; }
+
+/* ── Threat map live layer ─────────────────────────────────────────────── */
+.threat-map-radar {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.35;
+}
+.threat-map-radar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140%;
+  height: 140%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(34, 211, 238, 0.06) 36deg, transparent 72deg);
+  animation: threat-radar-spin 10s linear infinite;
+}
+@keyframes threat-radar-spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}

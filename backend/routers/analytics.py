@@ -18,5 +18,5 @@ async def get_velocity(family: str):
 async def get_all_velocities():
     """Get evolution velocity for all fraud families."""
     from main import velocity_service, qdrant_service
-    families = [s["family"] for s in qdrant_service.get_family_stats()]
+    families = [s["family"] for s in qdrant_service.get_cached_family_stats()]
     return [velocity_service.compute_velocity(f) for f in families]

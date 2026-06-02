@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts';
 import type { GenomeData } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -25,14 +26,17 @@ const COMPLEXITY_LABEL = (c: number) => {
   return { label: 'SIMPLE', color: 'text-threat-low' };
 };
 
-export function GenomeRadar({ genome }: Props) {
-  const chartData = genome.dimensions.map((d) => ({
-    subject: DIMENSION_SHORT[d.key] || d.label,
-    score: Math.round(d.score * 100),
-    fullMark: 100,
-    color: d.color,
-    description: d.description,
-  }));
+export const GenomeRadar = memo(function GenomeRadar({ genome }: Props) {
+  const chartData = useMemo(
+    () => genome.dimensions.map((d) => ({
+      subject: DIMENSION_SHORT[d.key] || d.label,
+      score: Math.round(d.score * 100),
+      fullMark: 100,
+      color: d.color,
+      description: d.description,
+    })),
+    [genome],
+  );
 
   const { label: complexityLabel, color: complexityColor } = COMPLEXITY_LABEL(genome.attack_complexity);
   const dominant = genome.dimensions.find((d) => d.key === genome.dominant_vector);
@@ -117,4 +121,4 @@ export function GenomeRadar({ genome }: Props) {
       </div>
     </div>
   );
-}
+});

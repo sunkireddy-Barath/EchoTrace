@@ -4,6 +4,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from services.timing import timed
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +29,8 @@ class AudioService:
             tmp_path = tmp.name
 
         try:
-            result = whisper.transcribe(self._model, tmp_path, language="en")
+            with timed("whisper.transcribe"):
+                result = whisper.transcribe(self._model, tmp_path, language="en")
             text = result.get("text", "").strip()
             return text if text else "[No speech detected in audio]"
         finally:

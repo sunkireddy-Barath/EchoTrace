@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
@@ -215,7 +215,7 @@ function Legend({ active, onToggle }: { active: Family[]; onToggle: (f: Family) 
 }
 
 /* ── Main component ──────────────────────────────────────────────────────── */
-export function SemanticThreatMap() {
+export const SemanticThreatMap = memo(function SemanticThreatMap() {
   const [activeF, setActiveF] = useState<Family[]>(Object.keys(FAMILY_COLORS) as Family[]);
   const [livePoints, setLivePoints] = useState<VectorPoint[]>([]);
 
@@ -264,12 +264,15 @@ export function SemanticThreatMap() {
         setHighlightedFamily(null);
         setNewDotId(null);
       }, 2500);
-    }, 6000);
+    }, 8000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const visible = livePoints.filter(p => activeF.includes(p.family));
+  const visible = useMemo(
+    () => livePoints.filter((p) => activeF.includes(p.family)),
+    [livePoints, activeF],
+  );
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0a0f1e] overflow-hidden">
@@ -394,4 +397,4 @@ export function SemanticThreatMap() {
       )}
     </div>
   );
-}
+});

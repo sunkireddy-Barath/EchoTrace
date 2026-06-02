@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { FileText, ImageIcon, Mic } from 'lucide-react';
 import type { SimilarMessage } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -18,7 +19,7 @@ function scoreColor(s: number) {
 
 interface Props { messages: SimilarMessage[]; }
 
-export function SimilarityMeter({ messages }: Props) {
+export const SimilarityMeter = memo(function SimilarityMeter({ messages }: Props) {
   return (
     <div className="space-y-2.5">
       {messages.length === 0 && (
@@ -66,4 +67,4 @@ export function SimilarityMeter({ messages }: Props) {
       })}
     </div>
   );
-}
+});

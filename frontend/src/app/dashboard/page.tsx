@@ -1,6 +1,91 @@
-import { Zap, ArrowRight, Shield, Dna, AlertOctagon, Activity } from 'lucide-react';
+import {
+  Zap, ArrowRight, Shield, Dna, AlertOctagon, Activity,
+  XCircle, Ban, ShieldOff, ShieldCheck, ScanSearch, BrainCircuit, Radar,
+  TrendingUp, BarChart3, Target, AlertTriangle,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { StatsBar } from '@/components/StatsBar';
+
+const COMPARISON_COLUMNS: {
+  title: string;
+  headerIcon: LucideIcon;
+  headerIconBg: string;
+  headerIconColor: string;
+  variant: 'keyword' | 'echotrace' | 'business';
+  cardClass: string;
+  hover: string;
+  items: { icon: LucideIcon; text: string }[];
+}[] = [
+  {
+    title: 'Keyword Filter',
+    headerIcon: ShieldOff,
+    headerIconBg: 'bg-red-500/10 border-red-500/25',
+    headerIconColor: 'text-red-400/90',
+    variant: 'keyword',
+    cardClass: 'rounded-xl border border-border bg-surface-3/40 p-4',
+    hover: 'hover:border-red-500/30 hover:shadow-[0_4px_20px_rgba(239,68,68,0.06)]',
+    items: [
+      { icon: XCircle, text: 'Bypassed by synonym substitution' },
+      { icon: Ban, text: 'Misses rephrased scam variants' },
+      { icon: ShieldOff, text: 'No fraud family clustering' },
+      { icon: XCircle, text: 'No evolution or lineage tracking' },
+    ],
+  },
+  {
+    title: 'EchoTrace AI',
+    headerIcon: ShieldCheck,
+    headerIconBg: 'bg-cyan-500/10 border-cyan-500/25',
+    headerIconColor: 'text-emerald-400/90',
+    variant: 'echotrace',
+    cardClass: 'rounded-xl bg-neon/5 border border-neon/20 p-4',
+    hover: 'hover:border-cyan-500/35 hover:shadow-[0_4px_20px_rgba(34,211,238,0.08)]',
+    items: [
+      { icon: ScanSearch, text: '384-dim semantic similarity detection' },
+      { icon: ShieldCheck, text: 'Same intent detected across phrasing' },
+      { icon: BrainCircuit, text: '8-dimension psychological attack genome' },
+      { icon: Radar, text: 'Zero-day and emerging threat alerts' },
+    ],
+  },
+  {
+    title: 'Business Value',
+    headerIcon: BarChart3,
+    headerIconBg: 'bg-amber-500/10 border-amber-500/25',
+    headerIconColor: 'text-blue-400/90',
+    variant: 'business',
+    cardClass: 'rounded-xl border border-border bg-surface-3/40 p-4',
+    hover: 'hover:border-blue-500/30 hover:shadow-[0_4px_20px_rgba(59,130,246,0.06)]',
+    items: [
+      { icon: Target, text: 'Fewer false negatives on intent match' },
+      { icon: TrendingUp, text: 'Exportable intelligence briefings' },
+      { icon: Activity, text: 'Predictive evolution velocity warnings' },
+      { icon: AlertTriangle, text: 'Community-indexed threat corpus' },
+    ],
+  },
+];
+
+function ComparisonBullet({
+  icon: Icon,
+  text,
+  variant,
+}: {
+  icon: LucideIcon;
+  text: string;
+  variant: 'keyword' | 'echotrace' | 'business';
+}) {
+  const iconColor = {
+    keyword: 'text-red-400/85',
+    echotrace: 'text-cyan-400/90',
+    business: 'text-amber-400/85',
+  }[variant];
+
+  return (
+    <li className="flex items-start gap-2.5">
+      <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconColor}`} strokeWidth={1.75} />
+      <span className="text-xs text-ink-2 leading-snug">{text}</span>
+    </li>
+  );
+}
 
 const FEATURES = [
   {
@@ -133,23 +218,36 @@ export default function DashboardPage() {
         </section>
 
         {/* Why EchoTrace wins */}
-        <section className="rounded-2xl border border-border bg-surface-2 p-8">
-          <div className="text-xs text-ink-3 uppercase tracking-widest font-mono mb-4">Why EchoTrace Beats Keyword Systems</div>
+        <section className="rounded-2xl border border-border bg-surface-2 p-8 transition-all duration-200 hover:border-border-2 hover:shadow-[0_4px_28px_rgba(0,0,0,0.25)]">
+          <div className="text-xs text-ink-3 uppercase tracking-widest font-mono mb-1">Competitive Advantage</div>
+          <h2 className="text-lg font-semibold text-ink tracking-tight mb-5">Why EchoTrace Beats Keyword Systems</h2>
           <div className="grid sm:grid-cols-3 gap-6">
-            {[
-              ['Keyword Filter', ['❌ Bypassed by synonyms', '❌ Misses new phrasing', '❌ No family clustering', '❌ No evolution tracking']],
-              ['EchoTrace AI', ['✅ Semantic similarity', '✅ Detects same intent', '✅ 8-dim attack genome', '✅ Zero-day alerts']],
-              ['Business Value', ['🎯 Fewer false negatives', '📊 Intelligence reports', '🔮 Predictive warnings', '🤝 Community corpus']],
-            ].map(([title, items]) => (
-              <div key={title as string} className={title === 'EchoTrace AI' ? 'rounded-xl bg-neon/5 border border-neon/20 p-4' : ''}>
-                <div className="font-bold text-ink mb-3 text-sm">{title as string}</div>
-                <ul className="space-y-1.5">
-                  {(items as string[]).map((item, i) => (
-                    <li key={i} className="text-xs text-ink-2">{item}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {COMPARISON_COLUMNS.map((col) => {
+              const HeaderIcon = col.headerIcon;
+              return (
+                <div
+                  key={col.title}
+                  className={`space-y-3 transition-all duration-200 hover:-translate-y-0.5 ${col.cardClass} ${col.hover}`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${col.headerIconBg}`}>
+                      <HeaderIcon className={`w-4 h-4 ${col.headerIconColor}`} strokeWidth={1.75} />
+                    </div>
+                    <div className="font-semibold text-ink text-sm tracking-tight">{col.title}</div>
+                  </div>
+                  <ul className="space-y-2">
+                    {col.items.map((item) => (
+                      <ComparisonBullet
+                        key={item.text}
+                        icon={item.icon}
+                        text={item.text}
+                        variant={col.variant}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         </section>
       </main>

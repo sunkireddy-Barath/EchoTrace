@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import {
   ShieldAlert, ShieldCheck, Shield, ShieldQuestion,
   FileText, ImageIcon, Mic, ChevronDown, ChevronUp,
@@ -61,7 +61,7 @@ const MODALITY_ICON = {
 
 interface Props { result: AnalysisResult; }
 
-export function ThreatCard({ result }: Props) {
+export const ThreatCard = memo(function ThreatCard({ result }: Props) {
   const [expanded, setExpanded] = useState(false);
   const cfg = THREAT[result.threat_level];
   const pct = Math.round(result.threat_score * 100);
@@ -171,4 +171,4 @@ export function ThreatCard({ result }: Props) {
       </div>
     </div>
   );
-}
+});

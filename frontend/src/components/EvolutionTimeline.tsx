@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { ArrowDownCircle, Sparkles } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -12,7 +13,15 @@ interface Props {
   family: string;
 }
 
-export function EvolutionTimeline({ timeline, family }: Props) {
+export const EvolutionTimeline = memo(function EvolutionTimeline({ timeline, family }: Props) {
+  const chartData = useMemo(
+    () => (timeline ?? []).map((e) => ({
+      year: e.year,
+      sim: Math.round(e.similarity * 100),
+    })),
+    [timeline],
+  );
+
   if (!timeline?.length) {
     return (
       <div className="rounded-2xl border border-border bg-surface-2 p-5">
@@ -20,11 +29,6 @@ export function EvolutionTimeline({ timeline, family }: Props) {
       </div>
     );
   }
-
-  const chartData = timeline.map((e) => ({
-    year: e.year,
-    sim: Math.round(e.similarity * 100),
-  }));
 
   return (
     <div className="rounded-2xl border border-border bg-surface-2 overflow-hidden">
@@ -115,4 +119,4 @@ export function EvolutionTimeline({ timeline, family }: Props) {
       </div>
     </div>
   );
-}
+});

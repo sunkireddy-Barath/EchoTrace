@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import type {
   AnalysisResult,
   DashboardStats,
@@ -10,15 +10,36 @@ import type {
   HealthStatus,
 } from './types';
 
-const BASE = '';  // Next.js rewrites /api/* → http://localhost:8000/api/*
+const BASE = '';
+
+let analyzeInFlight: Promise<AnalysisResult> | null = null;
 
 export const api = {
-  async analyze(formData: FormData): Promise<AnalysisResult> {
-    const res = await axios.post<AnalysisResult>(`${BASE}/api/analyze`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 120_000,
-    });
-    return res.data;
+  async analyze(
+    formData: FormData,
+    config?: AxiosRequestConfig,
+  ): Promise<AnalysisResult> {
+    if (analyzeInFlight) {
+      return analyzeInFlight;
+    }
+
+    const request = axios
+      .post<AnalysisResult>(`${BASE}/api/analyze`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120_000,
+        ...config,
+      })
+      .then((res) => res.data)
+      .finally(() => {
+        analyzeInFlight = null;
+      });
+
+    analyzeInFlight = request;
+    return request;
+  },
+
+  cancelAnalyze() {
+    analyzeInFlight = null;
   },
 
   async getFamilies(): Promise<FamilyStats[]> {
@@ -27,7 +48,9 @@ export const api = {
   },
 
   async getEvolution(family: string): Promise<EvolutionEntry[]> {
-    const res = await axios.get<EvolutionEntry[]>(`${BASE}/api/evolution/${encodeURIComponent(family)}`);
+    const res = await axios.get<EvolutionEntry[]>(
+      `${BASE}/api/evolution/${encodeURIComponent(family)}`,
+    );
     return res.data;
   },
 
@@ -51,7 +74,9 @@ export const api = {
     return res.data;
   },
 
-  async reportScam(formData: FormData): Promise<{ status: string; detected_family: string; threat_score: number }> {
+  async reportScam(
+    formData: FormData,
+  ): Promise<{ status: string; detected_family: string; threat_score: number }> {
     const res = await axios.post(`${BASE}/api/report`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120_000,
@@ -60,7 +85,9 @@ export const api = {
   },
 
   async getVelocity(family: string): Promise<EvolutionVelocity> {
-    const res = await axios.get<EvolutionVelocity>(`${BASE}/api/velocity/${encodeURIComponent(family)}`);
+    const res = await axios.get<EvolutionVelocity>(
+      `${BASE}/api/velocity/${encodeURIComponent(family)}`,
+    );
     return res.data;
   },
 

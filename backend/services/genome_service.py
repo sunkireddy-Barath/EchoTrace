@@ -15,6 +15,7 @@ from typing import Optional, TYPE_CHECKING
 import numpy as np
 
 from models.schemas import GenomeData, GenomeDimension
+from services.timing import timed
 
 if TYPE_CHECKING:
     from services.embedding_service import EmbeddingService
@@ -149,6 +150,10 @@ class GenomeService:
         if not self._initialized:
             self.initialize()
 
+        with timed("genome.compute"):
+            return self._compute_genome_core(text_embedding)
+
+    def _compute_genome_core(self, text_embedding: list[float]) -> GenomeData:
         text_vec = np.array(text_embedding)  # (384,)
         # Dot product = cosine similarity for normalized vectors
         raw_scores = self._probe_matrix @ text_vec   # (8,)

@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import {
-  ArrowRight, Zap, Shield, Brain, AlertOctagon, Activity,
-  Globe, ChevronDown, Database, Search, Dna, Eye
+  ArrowRight, Zap, Shield, AlertOctagon, Activity,
+  Globe, ChevronDown, Database, Search, Dna, Eye,
+  XCircle, Ban, ShieldOff, ShieldCheck, ScanSearch, BrainCircuit, Radar,
+  TrendingUp, BarChart3, Target, AlertTriangle,
+  type LucideIcon,
 } from 'lucide-react';
 
 /* ── Neural network canvas background ───────────────────────────────────── */
@@ -179,6 +182,30 @@ function MockDashCard() {
   );
 }
 
+/* ── Comparison bullet (Section A) ─────────────────────────────────────── */
+function ComparisonBullet({
+  icon: Icon,
+  text,
+  variant,
+}: {
+  icon: LucideIcon;
+  text: string;
+  variant: 'keyword' | 'echotrace' | 'business';
+}) {
+  const iconColor = {
+    keyword: 'text-red-400/85 drop-shadow-[0_0_6px_rgba(248,113,113,0.25)]',
+    echotrace: 'text-cyan-400/90 drop-shadow-[0_0_6px_rgba(34,211,238,0.25)]',
+    business: 'text-amber-400/85 drop-shadow-[0_0_6px_rgba(251,191,36,0.2)]',
+  }[variant];
+
+  return (
+    <li className="flex items-start gap-2.5">
+      <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconColor}`} strokeWidth={1.75} />
+      <span className="text-xs text-slate-400 leading-snug">{text}</span>
+    </li>
+  );
+}
+
 /* ── Main landing component ──────────────────────────────────────────────── */
 export default function LandingPage() {
   const { scrollY } = useScroll();
@@ -235,6 +262,54 @@ export default function LandingPage() {
       title: 'Qdrant-Native',
       desc: 'No secondary database. Vectors + metadata payloads power detection, geography, and family clustering.',
       accent: 'bg-green-500/10',
+    },
+  ];
+
+  const COMPARISON_COLUMNS = [
+    {
+      title: 'Keyword System',
+      headerIcon: ShieldOff,
+      headerIconBg: 'bg-red-500/10 border-red-500/25',
+      headerIconColor: 'text-red-400/90',
+      variant: 'keyword' as const,
+      bg: 'bg-red-950/20 border-red-900/40',
+      hover: 'hover:border-red-500/35 hover:shadow-[0_4px_24px_rgba(239,68,68,0.08)]',
+      items: [
+        { icon: XCircle, text: '"Free KYC update" blocked' },
+        { icon: Ban, text: '"Account verification needed" passes undetected' },
+        { icon: ShieldOff, text: 'Same scam, new wording — evades rules' },
+        { icon: XCircle, text: 'No mutation or lineage tracking' },
+      ],
+    },
+    {
+      title: 'EchoTrace Semantic',
+      headerIcon: ShieldCheck,
+      headerIconBg: 'bg-cyan-500/10 border-cyan-500/25',
+      headerIconColor: 'text-emerald-400/90',
+      variant: 'echotrace' as const,
+      bg: 'bg-blue-950/30 border-blue-800/40',
+      hover: 'hover:border-cyan-500/35 hover:shadow-[0_4px_24px_rgba(34,211,238,0.1)]',
+      items: [
+        { icon: ScanSearch, text: 'Detects semantic intent, not surface text' },
+        { icon: ShieldCheck, text: 'Same fraud, any phrasing — caught' },
+        { icon: BrainCircuit, text: '8-dimension psychological attack genome' },
+        { icon: Radar, text: 'Zero-day mutations flagged and incubated' },
+      ],
+    },
+    {
+      title: 'Business Impact',
+      headerIcon: BarChart3,
+      headerIconBg: 'bg-amber-500/10 border-amber-500/25',
+      headerIconColor: 'text-blue-400/90',
+      variant: 'business' as const,
+      bg: 'bg-slate-900/40 border-slate-700/30',
+      hover: 'hover:border-blue-500/30 hover:shadow-[0_4px_24px_rgba(59,130,246,0.08)]',
+      items: [
+        { icon: Target, text: 'Near-zero false negatives on intent match' },
+        { icon: TrendingUp, text: 'Predictive threat intelligence reports' },
+        { icon: Activity, text: 'Evolution velocity alerts per family' },
+        { icon: AlertTriangle, text: 'Community-grown, continuously indexed corpus' },
+      ],
     },
   ];
 
@@ -373,10 +448,10 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-950/5 to-transparent pointer-events-none" />
         <div className="max-w-5xl mx-auto px-6">
           <FadeSection>
-            <div className="text-center mb-14 space-y-3">
+            <div className="text-center mb-14 space-y-2">
               <div className="text-xs text-red-400/80 uppercase tracking-widest font-mono">The Problem</div>
-              <h2 className="text-3xl sm:text-4xl font-black">Scams Evolve. Keywords Don&apos;t.</h2>
-              <p className="text-slate-400 max-w-xl mx-auto">
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">Scams Evolve. Keywords Don&apos;t.</h2>
+              <p className="text-slate-400 text-sm max-w-xl mx-auto leading-relaxed">
                 Fraudsters rephrase. Keyword blocklists break. New scam families emerge
                 weekly — invisible to static rules.
               </p>
@@ -384,59 +459,37 @@ export default function LandingPage() {
           </FadeSection>
 
           <div className="grid sm:grid-cols-3 gap-5">
-            {[
-              {
-                icon: '📋',
-                title: 'Keyword System',
-                items: [
-                  '❌ "Free KYC update" blocked',
-                  '✅ "Account verification needed" passes',
-                  '✅ Same scam, new wording — undetected',
-                  '❌ No mutation tracking',
-                ],
-                bg: 'bg-red-950/20 border-red-900/40',
-              },
-              {
-                icon: '🧬',
-                title: 'EchoTrace Semantic',
-                items: [
-                  '✅ Detects semantic intent',
-                  '✅ Same fraud, any phrasing — caught',
-                  '✅ 8-dim psychological genome',
-                  '✅ Flags zero-day mutations',
-                ],
-                bg: 'bg-blue-950/30 border-blue-800/40',
-              },
-              {
-                icon: '📊',
-                title: 'Business Impact',
-                items: [
-                  '🎯 Near-zero false negatives',
-                  '📈 Predictive threat reports',
-                  '🔮 Evolution velocity alerts',
-                  '🤝 Community-grown corpus',
-                ],
-                bg: 'bg-slate-900/40 border-slate-700/30',
-              },
-            ].map((col, i) => (
-              <FadeSection key={col.title}>
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1, duration: 0.5 }}
-                  viewport={{ once: true }}
-                  className={`rounded-2xl border p-6 space-y-3 ${col.bg}`}
-                >
-                  <div className="text-2xl">{col.icon}</div>
-                  <div className="font-bold text-white">{col.title}</div>
-                  <ul className="space-y-1.5">
-                    {col.items.map(item => (
-                      <li key={item} className="text-xs text-slate-400">{item}</li>
-                    ))}
-                  </ul>
-                </motion.div>
-              </FadeSection>
-            ))}
+            {COMPARISON_COLUMNS.map((col, i) => {
+              const HeaderIcon = col.headerIcon;
+              return (
+                <FadeSection key={col.title}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1, duration: 0.5 }}
+                    viewport={{ once: true }}
+                    className={`rounded-2xl border p-6 space-y-4 transition-all duration-200 hover:-translate-y-0.5 ${col.bg} ${col.hover}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center border ${col.headerIconBg}`}>
+                        <HeaderIcon className={`w-[18px] h-[18px] ${col.headerIconColor}`} strokeWidth={1.75} />
+                      </div>
+                      <div className="font-semibold text-white text-sm tracking-tight">{col.title}</div>
+                    </div>
+                    <ul className="space-y-2.5">
+                      {col.items.map((item) => (
+                        <ComparisonBullet
+                          key={item.text}
+                          icon={item.icon}
+                          text={item.text}
+                          variant={col.variant}
+                        />
+                      ))}
+                    </ul>
+                  </motion.div>
+                </FadeSection>
+              );
+            })}
           </div>
         </div>
       </section>

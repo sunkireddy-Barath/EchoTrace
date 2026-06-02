@@ -1,17 +1,38 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Clock, Zap, Dna, Brain, GitBranch, Loader2 } from 'lucide-react';
 import type { AnalysisResult } from '@/lib/types';
 import { ThreatCard } from '@/components/ThreatCard';
 import { SimilarityMeter } from '@/components/SimilarityMeter';
-import { EvolutionTimeline } from '@/components/EvolutionTimeline';
-import { ThreatGraph } from '@/components/ThreatGraph';
 import { ZeroDayAlert } from '@/components/ZeroDayAlert';
-import { GenomeRadar } from '@/components/GenomeRadar';
 import { ThreatBriefTemplate } from '@/components/ThreatBriefTemplate';
 import { cn } from '@/lib/utils';
+
+const GenomeRadar = dynamic(
+  () => import('@/components/GenomeRadar').then((m) => m.GenomeRadar),
+  { ssr: false, loading: () => <ChartPlaceholder label="Loading genome profile…" /> },
+);
+
+const EvolutionTimeline = dynamic(
+  () => import('@/components/EvolutionTimeline').then((m) => m.EvolutionTimeline),
+  { ssr: false, loading: () => <ChartPlaceholder label="Loading evolution timeline…" /> },
+);
+
+const ThreatGraph = dynamic(
+  () => import('@/components/ThreatGraph').then((m) => m.ThreatGraph),
+  { ssr: false, loading: () => <ChartPlaceholder label="Loading threat graph…" /> },
+);
+
+function ChartPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="h-48 flex items-center justify-center rounded-xl border border-border bg-surface-3/30">
+      <p className="text-xs text-ink-3 font-mono animate-pulse">{label}</p>
+    </div>
+  );
+}
 
 function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (

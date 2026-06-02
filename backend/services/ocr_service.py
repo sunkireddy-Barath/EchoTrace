@@ -2,6 +2,8 @@ from __future__ import annotations
 import logging
 from io import BytesIO
 
+from services.timing import timed
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,10 +22,10 @@ class OCRService:
         from PIL import Image
         import numpy as np
 
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        img_array = np.array(image)
-        # detail=0 returns only text strings without bounding boxes
-        results = self._reader.readtext(img_array, detail=0)
+        with timed("ocr.extract"):
+            image = Image.open(BytesIO(image_bytes)).convert("RGB")
+            img_array = np.array(image)
+            results = self._reader.readtext(img_array, detail=0)
         extracted = " ".join(results).strip()
         if not extracted:
             extracted = "[No text detected in image]"

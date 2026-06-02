@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api", tags=["stats"])
 async def get_stats():
     from main import qdrant_service
     total = qdrant_service.get_total_count()
-    raw_stats = qdrant_service.get_family_stats()
+    raw_stats = qdrant_service.get_cached_family_stats()
     families = [FamilyStats(**s) for s in raw_stats]
     recent_threats = sum(1 for f in families if max(f.years, default=0) >= 2024)
     community_count = qdrant_service.get_community_count()

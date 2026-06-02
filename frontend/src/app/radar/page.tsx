@@ -129,7 +129,7 @@ function RadarHeader() {
 /* ── Terminal log panel ──────────────────────────────────────────────────── */
 function TerminalLog() {
   const [logs, setLogs] = useState<string[]>([]);
-  const endRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const idx = useRef(0);
 
   useEffect(() => {
@@ -137,15 +137,24 @@ function TerminalLog() {
     setLogs(initial);
 
     const interval = setInterval(() => {
+      // Slower cadence reduces terminal log re-renders
       const entry = LOG_TEMPLATES[idx.current % LOG_TEMPLATES.length](nowTs());
       setLogs(prev => [...prev.slice(-30), entry]);
       idx.current++;
-    }, 2800);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
+  // Scroll only the log container — never the page.
+  // Only auto-scroll to bottom if the user is already near the bottom.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = containerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // 60 px threshold — if user scrolled up more than this, leave them alone
+    if (distanceFromBottom <= 60) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [logs]);
 
   return (
@@ -160,13 +169,17 @@ function TerminalLog() {
           <span className="text-[10px] font-mono text-green-400">LIVE</span>
         </div>
       </div>
-      <div className="p-4 h-52 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-3">
+      {/* Fixed-height scrollable container — scroll is isolated here, never the page */}
+      <div
+        ref={containerRef}
+        className="p-4 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-3"
+        style={{ maxHeight: '13rem' }}
+      >
         {logs.map((log, i) => (
           <div key={i} className={`${i === logs.length - 1 ? 'text-green-400' : 'text-green-600/70'} whitespace-pre`}>
             {log}
           </div>
         ))}
-        <div ref={endRef} />
       </div>
     </div>
   );

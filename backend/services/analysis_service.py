@@ -12,13 +12,18 @@ Integrates:
 8. Threat mutation graph
 """
 from __future__ import annotations
+
+import asyncio
 import logging
+import time
+import uuid
 from collections import Counter
+from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
+import numpy as np
 from fastapi import HTTPException, UploadFile
 
-import numpy as np
 from models.schemas import (
     AnalysisResult,
     EvolutionEntry,
@@ -26,6 +31,8 @@ from models.schemas import (
     ZeroDayAlert,
     PsychologicalRelative,
 )
+from services.cache_service import analysis_cache, analysis_cache_key
+from services.timing import timed, ms_since
 
 if TYPE_CHECKING:
     from services.embedding_service import EmbeddingService
@@ -37,20 +44,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ── 3-level threat intelligence thresholds ───────────────────────────────────
-KNOWN_THRESHOLD   = 0.75   # >= 0.75  → KNOWN THREAT
-EVOLVING_THRESHOLD = 0.58  # >= 0.58  → EVOLVING VARIANT
-# < 0.58  → EMERGING VARIANT (zero-day)
+KNOWN_THRESHOLD = 0.75
+EVOLVING_THRESHOLD = 0.58
+
+PRIMARY_SEARCH_LIMIT = 30
 
 
 def _classify_variant(similarity: float) -> tuple[str, str, bool]:
-    """Return (threat_status, variant_stage, is_zero_day)."""
     if similarity >= KNOWN_THRESHOLD:
         return "KNOWN THREAT", "known", False
-    elif similarity >= EVOLVING_THRESHOLD:
+    if similarity >= EVOLVING_THRESHOLD:
         return "EVOLVING VARIANT", "evolving", False
-    else:
-        return "EMERGING VARIANT", "emerging", True
+    return "EMERGING VARIANT", "emerging", True
 
 
 def _compute_threat_level(score: float, variant_stage: str) -> str:
@@ -64,7 +69,6 @@ def _compute_threat_level(score: float, variant_stage: str) -> str:
 
 
 def _build_risk_indicators(result_data: dict) -> list[str]:
-    """Plain-English risk flags for non-technical users."""
     indicators = []
     family = result_data.get("detected_family", "")
     score = result_data.get("threat_score", 0.0)
@@ -87,10 +91,59 @@ def _build_risk_indicators(result_data: dict) -> list[str]:
     if genome == "fear":
         indicators.append("😨 Using fear of legal/financial consequences as manipulation")
     if evolution_count >= 4:
-        indicators.append(f"📈 This fraud family has {evolution_count} known evolution variants — highly adaptive")
+        indicators.append(
+            f"📈 This fraud family has {evolution_count} known evolution variants — highly adaptive"
+        )
     if not indicators:
         indicators.append("ℹ Low similarity to known fraud patterns — verify manually")
     return indicators[:5]
+
+
+def _build_evolution_timeline(evo_results: list, detected_family: str) -> list[EvolutionEntry]:
+    by_year: dict[int, dict] = {}
+    for r in evo_results:
+        yr = int(r.payload.get("year", 2024))
+        score = float(r.score)
+        if yr not in by_year or score > by_year[yr]["similarity"]:
+            by_year[yr] = {
+                "year": yr,
+                "text": r.payload.get("message_text", ""),
+                "family": r.payload.get("scam_family", detected_family),
+                "cluster_id": int(r.payload.get("cluster_id", 0)),
+                "similarity": round(score, 4),
+            }
+    return [EvolutionEntry(**entry) for entry in sorted(by_year.values(), key=lambda x: x["year"])]
+
+
+def _build_psychological_relatives(relative_points, query_genome, genome_svc) -> list[PsychologicalRelative]:
+    psychological_relatives: list[PsychologicalRelative] = []
+    v_query = np.array([d.score for d in query_genome.dimensions])
+
+    for r in relative_points:
+        rel_vector = r.vector
+        if rel_vector is None:
+            continue
+
+        rel_genome = genome_svc.compute_genome(rel_vector)
+        v_rel = np.array([d.score for d in rel_genome.dimensions])
+        norm_q = np.linalg.norm(v_query)
+        norm_r = np.linalg.norm(v_rel)
+        dna_sim = float(np.dot(v_query, v_rel) / (norm_q * norm_r)) if norm_q > 0 and norm_r > 0 else 0.0
+
+        psychological_relatives.append(
+            PsychologicalRelative(
+                id=str(r.id),
+                text=r.payload.get("message_text", ""),
+                family=r.payload.get("scam_family", "Unknown"),
+                dna_similarity=round(dna_sim, 4),
+                dominant_vector=rel_genome.dominant_vector,
+                similarity=round(float(r.score), 4),
+                year=int(r.payload.get("year", 2024)),
+            )
+        )
+
+    psychological_relatives.sort(key=lambda x: x.dna_similarity, reverse=True)
+    return psychological_relatives
 
 
 class AnalysisService:
@@ -110,45 +163,60 @@ class AnalysisService:
         self.graph = graph_svc
         self.genome = genome_svc
 
-    async def analyze(
-        self,
-        text: Optional[str],
-        file: Optional[UploadFile],
-    ) -> AnalysisResult:
-
-        # ── Step 1: Extract text ──────────────────────────────────────────
+    async def _extract_text(
+        self, text: Optional[str], file: Optional[UploadFile]
+    ) -> tuple[str, str]:
         if file is not None:
             file_bytes = await file.read()
             content_type = file.content_type or ""
             filename = file.filename or "upload"
 
             if content_type.startswith("image/"):
-                extracted_text = self.ocr.extract_text(file_bytes)
-                modality = "image"
-            elif content_type.startswith("audio/") or content_type.startswith("video/"):
-                extracted_text = self.audio.transcribe(file_bytes, filename)
-                modality = "audio"
-            else:
-                try:
-                    extracted_text = self.ocr.extract_text(file_bytes)
-                    modality = "image"
-                except Exception:
-                    extracted_text = file_bytes.decode("utf-8", errors="replace")
-                    modality = "text"
-        elif text and text.strip():
-            extracted_text = text.strip()
-            modality = "text"
-        else:
-            raise HTTPException(status_code=400, detail="Provide text or upload a file.")
+                with timed("pipeline.ocr"):
+                    extracted = await asyncio.to_thread(self.ocr.extract_text, file_bytes)
+                return extracted, "image"
+            if content_type.startswith("audio/") or content_type.startswith("video/"):
+                with timed("pipeline.whisper"):
+                    extracted = await asyncio.to_thread(self.audio.transcribe, file_bytes, filename)
+                return extracted, "audio"
+            try:
+                with timed("pipeline.ocr"):
+                    extracted = await asyncio.to_thread(self.ocr.extract_text, file_bytes)
+                return extracted, "image"
+            except Exception:
+                return file_bytes.decode("utf-8", errors="replace"), "text"
 
-        # ── Step 2: Embed ─────────────────────────────────────────────────
-        query_vector = self.embedding.encode(extracted_text)
+        if text and text.strip():
+            return text.strip(), "text"
 
-        # ── Step 3: Qdrant semantic search — core detection ───────────────
-        results = self.qdrant.semantic_search(query_vector, limit=10)
+        raise HTTPException(status_code=400, detail="Provide text or upload a file.")
 
-        # ── Step 4: 3-level threat intelligence classification ────────────
-        family_max_scores = self.qdrant.semantic_search_all_families(query_vector)
+    async def analyze(
+        self,
+        text: Optional[str],
+        file: Optional[UploadFile],
+    ) -> AnalysisResult:
+        t_total = time.perf_counter()
+
+        with timed("pipeline.extract"):
+            extracted_text, modality = await self._extract_text(text, file)
+
+        cache_key = analysis_cache_key(extracted_text, modality)
+        cached = analysis_cache.get(cache_key)
+        if cached is not None:
+            logger.info("analysis.cache_hit: %.1fms", ms_since(t_total))
+            return cached
+
+        with timed("pipeline.embedding"):
+            query_vector = await asyncio.to_thread(self.embedding.encode, extracted_text)
+
+        with timed("pipeline.qdrant_primary_search"):
+            primary_results = await asyncio.to_thread(
+                self.qdrant.semantic_search, query_vector, PRIMARY_SEARCH_LIMIT
+            )
+
+        results = primary_results[:10]
+        family_max_scores = self.qdrant.family_scores_from_results(primary_results)
         global_max_similarity = max(family_max_scores.values(), default=0.0)
         threat_status, variant_stage, is_zero_day = _classify_variant(global_max_similarity)
 
@@ -156,21 +224,18 @@ class AnalysisService:
         novelty_score_percentage = round((1.0 - global_max_similarity) * 100, 2)
         closest_fam = max(family_max_scores, key=family_max_scores.get) if family_max_scores else "None"
 
-        # ── Dynamic alert message per tier ───────────────────────────────────
         _alert_messages = {
-            "known":    "Strong alignment with known fraud lineage.",
+            "known": "Strong alignment with known fraud lineage.",
             "evolving": "Semantic mutation detected within an existing scam lineage.",
             "emerging": "Weak alignment to known scam families. Possible emerging threat pattern.",
         }
         alert_message = _alert_messages[variant_stage]
 
-        # ── Proto-family clustering — EMERGING only ───────────────────────
         assigned_proto = None
         incubation_count = 0
         incubation_summary = ""
 
         if variant_stage == "emerging":
-            # Try to match an existing emerging_ proto-family
             for r in results:
                 fam = r.payload.get("scam_family", "")
                 if fam.startswith("emerging_") and float(r.score) >= 0.40:
@@ -178,7 +243,7 @@ class AnalysisService:
                     break
 
             if not assigned_proto:
-                fam_stats = self.qdrant.get_family_stats()
+                fam_stats = await asyncio.to_thread(self.qdrant.get_cached_family_stats)
                 existing_nums = [
                     int(stat["family"].split("_")[1])
                     for stat in fam_stats
@@ -188,49 +253,38 @@ class AnalysisService:
                 next_num = max(existing_nums, default=0) + 1
                 assigned_proto = f"emerging_{next_num:03d}"
 
-            from qdrant_client.http import models as qmodels
-            try:
-                cnt_res = self.qdrant.client.count(
-                    collection_name=self.qdrant.scam_messages,
-                    count_filter=qmodels.Filter(
-                        must=[
-                            qmodels.FieldCondition(
-                                key="scam_family",
-                                match=qmodels.MatchValue(value=assigned_proto)
-                            )
-                        ]
-                    )
-                )
-                existing_cnt = cnt_res.count
-            except Exception:
-                existing_cnt = 0
-
+            existing_cnt = await asyncio.to_thread(self.qdrant.count_by_family, assigned_proto)
             incubation_count = existing_cnt + 1
             incubation_summary = (
                 "First seen today. No other occurrences of this pattern in the database yet. Monitoring for future mutations."
-                if incubation_count == 1 else
-                f"Accumulating pattern. {incubation_count} similar reports matching proto-family {assigned_proto} have been captured in the system radar."
+                if incubation_count == 1
+                else f"Accumulating pattern. {incubation_count} similar reports matching proto-family {assigned_proto} have been captured in the system radar."
             )
 
-            import uuid
-            from datetime import datetime
-            self.qdrant.upsert_message(uuid.uuid4(), query_vector, {
-                "message_text": extracted_text,
-                "scam_family": assigned_proto,
-                "year": datetime.now().year,
-                "cluster_id": 999,
-                "confidence_score": round(global_max_similarity, 4),
-                "modality": modality,
-                "source_label": "System Radar",
-                "is_community": False,
-            })
+            await asyncio.to_thread(
+                self.qdrant.upsert_message,
+                uuid.uuid4(),
+                query_vector,
+                {
+                    "message_text": extracted_text,
+                    "scam_family": assigned_proto,
+                    "year": datetime.now().year,
+                    "cluster_id": 999,
+                    "confidence_score": round(global_max_similarity, 4),
+                    "modality": modality,
+                    "source_label": "System Radar",
+                    "is_community": False,
+                },
+            )
 
             detected_family = assigned_proto
             threat_score = global_max_similarity
             cluster_id = 999
 
         elif variant_stage == "evolving":
-            incubation_summary = "Semantic mutation detected. This variant shares lineage with a known scam family but shows structural drift."
+            incubation_summary = (
+                "Semantic mutation detected. This variant shares lineage with a known scam family but shows structural drift."
+            )
             if results:
                 top_families = [r.payload.get("scam_family", "Unknown") for r in results[:3]]
                 detected_family = Counter(top_families).most_common(1)[0][0]
@@ -241,7 +295,7 @@ class AnalysisService:
                 threat_score = global_max_similarity
                 cluster_id = 0
 
-        else:  # known
+        else:
             incubation_summary = "This threat pattern is stable and matches known scam campaign definitions."
             if results:
                 top_families = [r.payload.get("scam_family", "Unknown") for r in results[:3]]
@@ -261,10 +315,8 @@ class AnalysisService:
             alert_message=alert_message,
             variant_stage=variant_stage,
         )
-
         threat_level = _compute_threat_level(threat_score, variant_stage)
 
-        # ── Step 6: Similar messages ──────────────────────────────────────
         similar_messages = [
             SimilarMessage(
                 id=str(r.id),
@@ -278,35 +330,51 @@ class AnalysisService:
             for r in results
         ]
 
-        # ── Step 7: Evolution timeline (family-filtered Qdrant search) ────
-        evo_results = self.qdrant.semantic_search(
-            query_vector, limit=30, family_filter=detected_family
-        )
-        by_year: dict[int, dict] = {}
-        for r in evo_results:
-            yr = int(r.payload.get("year", 2024))
-            score = float(r.score)
-            if yr not in by_year or score > by_year[yr]["similarity"]:
-                by_year[yr] = {
-                    "year": yr,
-                    "text": r.payload.get("message_text", ""),
-                    "family": r.payload.get("scam_family", detected_family),
-                    "cluster_id": int(r.payload.get("cluster_id", 0)),
-                    "similarity": round(score, 4),
-                }
-        evolution_timeline = [
-            EvolutionEntry(**entry) for entry in sorted(by_year.values(), key=lambda x: x["year"])
+        filtered_evo = [
+            r for r in primary_results if r.payload.get("scam_family") == detected_family
         ]
+        if len(filtered_evo) >= 5:
+            evo_results = filtered_evo
+        else:
+            with timed("pipeline.qdrant_evolution_search"):
+                evo_results = await asyncio.to_thread(
+                    self.qdrant.semantic_search,
+                    query_vector,
+                    30,
+                    detected_family,
+                )
 
-        # ── Step 8: Threat mutation graph ─────────────────────────────────
-        family_centroids = self.qdrant.get_all_family_centroids()
-        family_stats = self.qdrant.get_family_stats()
-        graph_data = self.graph.build_graph(family_centroids, family_stats)
+        async def _fetch_graph():
+            stats, centroids = await asyncio.gather(
+                asyncio.to_thread(self.qdrant.get_cached_family_stats),
+                asyncio.to_thread(self.qdrant.get_cached_family_centroids),
+            )
+            return await asyncio.to_thread(self.graph.build_graph, centroids, stats)
 
-        # ── Step 9: Semantic Genome (novel — psychological attack profile) ─
-        genome = self.genome.compute_genome(query_vector)
+        async def _fetch_relatives():
+            return await asyncio.to_thread(
+                self.qdrant.semantic_search,
+                query_vector,
+                5,
+                None,
+                False,
+                detected_family,
+                True,
+            )
 
-        # ── Step 10: Risk indicators ──────────────────────────────────────
+        graph_data, relative_points, genome = await asyncio.gather(
+            _fetch_graph(),
+            _fetch_relatives(),
+            asyncio.to_thread(self.genome.compute_genome, query_vector),
+        )
+
+        evolution_timeline = _build_evolution_timeline(evo_results, detected_family)
+
+        with timed("pipeline.relatives_genome"):
+            psychological_relatives = await asyncio.to_thread(
+                _build_psychological_relatives, relative_points, genome, self.genome
+            )
+
         risk_indicators = _build_risk_indicators({
             "detected_family": detected_family,
             "threat_score": threat_score,
@@ -315,94 +383,61 @@ class AnalysisService:
             "evolution_count": len(evolution_timeline),
         })
 
-        # ── Step 11: Psychological relatives (scams from other families with matching DNA) ──
-        relative_points = self.qdrant.semantic_search(
-            query_vector,
-            limit=5,
-            must_not_family=detected_family,
-            with_vectors=True
-        )
-
-        psychological_relatives = []
-        for r in relative_points:
-            # Calculate the relative's genome from its vector
-            rel_vector = r.vector
-            if rel_vector is None:
-                continue
-            
-            rel_genome = self.genome.compute_genome(rel_vector)
-            
-            # Compute DNA similarity (cosine similarity of their 8-dimension genome profiles)
-            v_query = np.array([d.score for d in genome.dimensions])
-            v_rel = np.array([d.score for d in rel_genome.dimensions])
-            
-            norm_q = np.linalg.norm(v_query)
-            norm_r = np.linalg.norm(v_rel)
-            
-            if norm_q > 0 and norm_r > 0:
-                dna_sim = float(np.dot(v_query, v_rel) / (norm_q * norm_r))
-            else:
-                dna_sim = 0.0
-
-            psychological_relatives.append(
-                PsychologicalRelative(
-                    id=str(r.id),
-                    text=r.payload.get("message_text", ""),
-                    family=r.payload.get("scam_family", "Unknown"),
-                    dna_similarity=round(dna_sim, 4),
-                    dominant_vector=rel_genome.dominant_vector,
-                    similarity=round(float(r.score), 4),
-                    year=int(r.payload.get("year", 2024)),
-                )
-            )
-
-        # Sort by DNA similarity descending
-        psychological_relatives.sort(key=lambda x: x.dna_similarity, reverse=True)
-
-        # ── Step 12: Dynamic Final Insight Card text generator ─────────────────
         sorted_dims = sorted(genome.dimensions, key=lambda d: d.score, reverse=True)
         dominant_lbl = sorted_dims[0].label.lower()
-        
-        # Secondary check (score >= 0.5)
         secondary = [d for d in sorted_dims[1:] if d.score >= 0.5]
-        if secondary:
-            secondary_lbl = secondary[0].label.lower()
-            tactics = f"{dominant_lbl} and {secondary_lbl}"
-        else:
-            tactics = f"{dominant_lbl} tactics"
-
-        rel_families = list(dict.fromkeys([r.family for r in psychological_relatives if r.dna_similarity >= 0.6]))
-        
-        insight_text = f"This scam belongs to the {detected_family} family but shares psychological DNA with {tactics}."
+        tactics = (
+            f"{dominant_lbl} and {secondary[0].label.lower()}"
+            if secondary
+            else f"{dominant_lbl} tactics"
+        )
+        rel_families = list(dict.fromkeys(
+            [r.family for r in psychological_relatives if r.dna_similarity >= 0.6]
+        ))
+        insight_text = (
+            f"This scam belongs to the {detected_family} family but shares psychological DNA with {tactics}."
+        )
         if rel_families:
             if len(rel_families) == 1:
-                insight_text += f" It shows strong strategic overlaps with campaigns in the {rel_families[0]} family."
+                insight_text += (
+                    f" It shows strong strategic overlaps with campaigns in the {rel_families[0]} family."
+                )
             else:
-                insight_text += f" It shares tactical characteristics with campaigns in the {', '.join(rel_families[:-1])} and {rel_families[-1]} families."
+                insight_text += (
+                    f" It shares tactical characteristics with campaigns in the "
+                    f"{', '.join(rel_families[:-1])} and {rel_families[-1]} families."
+                )
         else:
-            insight_text += f" It utilizes highly targeted manipulation vectors to bypass typical intellectual defenses."
+            insight_text += (
+                " It utilizes highly targeted manipulation vectors to bypass typical intellectual defenses."
+            )
 
-        return AnalysisResult(
-            threat_level=threat_level,
-            threat_score=round(threat_score, 4),
-            detected_family=detected_family,
-            cluster_id=cluster_id,
-            modality=modality,
-            extracted_text=extracted_text,
-            similar_messages=similar_messages,
-            evolution_timeline=evolution_timeline,
-            graph_data=graph_data,
-            genome=genome,
-            zero_day=zero_day_alert,
-            novelty_score=novelty_score_percentage,
-            risk_indicators=risk_indicators,
-            psychological_relatives=psychological_relatives,
-            insight_text=insight_text,
-            zero_day_detected=zero_day_detected,
-            closest_family=closest_fam,
-            threat_status=threat_status,
-            variant_stage=variant_stage,
-            incubation_count=incubation_count,
-            incubation_summary=incubation_summary,
-            proto_family=assigned_proto,
-        )
+        with timed("pipeline.response_serialize"):
+            result = AnalysisResult(
+                threat_level=threat_level,
+                threat_score=round(threat_score, 4),
+                detected_family=detected_family,
+                cluster_id=cluster_id,
+                modality=modality,
+                extracted_text=extracted_text,
+                similar_messages=similar_messages,
+                evolution_timeline=evolution_timeline,
+                graph_data=graph_data,
+                genome=genome,
+                zero_day=zero_day_alert,
+                novelty_score=novelty_score_percentage,
+                risk_indicators=risk_indicators,
+                psychological_relatives=psychological_relatives,
+                insight_text=insight_text,
+                zero_day_detected=zero_day_detected,
+                closest_family=closest_fam,
+                threat_status=threat_status,
+                variant_stage=variant_stage,
+                incubation_count=incubation_count,
+                incubation_summary=incubation_summary,
+                proto_family=assigned_proto,
+            )
+
+        analysis_cache.set(cache_key, result)
+        logger.info("analysis.pipeline_total: %.1fms", ms_since(t_total))
+        return result

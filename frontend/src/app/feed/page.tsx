@@ -1,11 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Radio, RefreshCw, FileText, ImageIcon, Mic, Send, AlertCircle } from 'lucide-react';
 import type { FeedItem } from '@/lib/types';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { SemanticThreatMap } from '@/components/SemanticThreatMap';
+
+const SemanticThreatMap = dynamic(
+  () => import('@/components/SemanticThreatMap').then((m) => m.SemanticThreatMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[400px] rounded-2xl border border-white/10 bg-[#0a0f1e] animate-pulse" />
+    ),
+  },
+);
 
 const MODALITY_ICON = {
   text: <FileText className="w-3.5 h-3.5" />,
@@ -52,10 +62,16 @@ export default function FeedPage() {
 
   useEffect(() => { loadFeed(); }, []);
 
-  const handleRefresh = () => {
+  const refreshLock = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    if (refreshLock.current) return;
+    refreshLock.current = true;
     setRefreshing(true);
-    loadFeed();
-  };
+    loadFeed().finally(() => {
+      refreshLock.current = false;
+    });
+  }, []);
 
   const handleSubmit = async () => {
     if (!reportText.trim()) return;
