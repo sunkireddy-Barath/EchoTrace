@@ -5,6 +5,7 @@ import { Radio, RefreshCw, FileText, ImageIcon, Mic, Send, AlertCircle } from 'l
 import type { FeedItem } from '@/lib/types';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { SemanticThreatMap } from '@/components/SemanticThreatMap';
 
 const MODALITY_ICON = {
   text: <FileText className="w-3.5 h-3.5" />,
@@ -77,7 +78,7 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-grid-pattern">
-      <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
+      <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -94,6 +95,9 @@ export default function FeedPage() {
             Refresh
           </button>
         </div>
+
+        {/* Semantic Threat Map */}
+        <SemanticThreatMap />
 
         {/* Submit new report */}
         <div className="rounded-2xl border border-border bg-surface-2 p-5 space-y-3">

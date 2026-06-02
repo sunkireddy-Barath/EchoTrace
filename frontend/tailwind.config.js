@@ -74,6 +74,11 @@ module.exports = {
         'shimmer': 'shimmer 2s infinite',
         'float': 'float 3s ease-in-out infinite',
         'zeroday': 'zeroday 1.5s ease-in-out infinite',
+        'radar-sweep': 'radar-sweep 3s linear infinite',
+        'ticker': 'ticker 30s linear infinite',
+        'pulse-ring': 'pulse-ring 2s ease-out infinite',
+        'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+        'border-glow': 'border-glow 2s ease-in-out infinite',
       },
       keyframes: {
         'pulse-threat': {
@@ -103,6 +108,26 @@ module.exports = {
         'zeroday': {
           '0%, 100%': { boxShadow: '0 0 20px rgba(191,90,242,0.3)' },
           '50%': { boxShadow: '0 0 50px rgba(191,90,242,0.7)' },
+        },
+        'radar-sweep': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+        'ticker': {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+        'pulse-ring': {
+          '0%': { transform: 'scale(1)', opacity: '0.6' },
+          '100%': { transform: 'scale(2.5)', opacity: '0' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { opacity: '0.4' },
+          '50%': { opacity: '1' },
+        },
+        'border-glow': {
+          '0%, 100%': { borderColor: 'rgba(226,75,74,0.4)' },
+          '50%': { borderColor: 'rgba(226,75,74,0.9)' },
         },
       },
       backgroundImage: {

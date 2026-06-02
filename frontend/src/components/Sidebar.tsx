@@ -5,14 +5,21 @@ import { usePathname } from 'next/navigation';
 import {
   Zap, LayoutDashboard, Search, Users, Radio,
   Github, BookOpen, Activity, ChevronRight,
+  AlertOctagon, Network, Globe,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const NAV = [
-  { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
+const NAV_MAIN = [
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/analyze', icon: Search, label: 'Analyze' },
   { href: '/families', icon: Users, label: 'Fraud Families' },
   { href: '/feed', icon: Radio, label: 'Live Feed' },
+];
+
+const NAV_INTEL = [
+  { href: '/radar', icon: AlertOctagon, label: 'Zero-Day Radar' },
+  { href: '/vectorspace', icon: Network, label: 'Vector Space' },
+  { href: '/threatmap', icon: Globe, label: 'Threat Map' },
 ];
 
 export function Sidebar() {
@@ -34,16 +41,29 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
         <div className="text-[10px] uppercase tracking-widest text-ink-3 px-3 py-2">Intelligence</div>
-        {NAV.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href || (href !== '/' && pathname.startsWith(href));
+        {NAV_MAIN.map(({ href, icon: Icon, label }) => {
+          const active = pathname === href || pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
-              className={cn(
-                'sidebar-item',
-                active && 'active',
-              )}
+              className={cn('sidebar-item', active && 'active')}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {label}
+              {active && <ChevronRight className="w-3 h-3 ml-auto opacity-60" />}
+            </Link>
+          );
+        })}
+
+        <div className="text-[10px] uppercase tracking-widest text-ink-3 px-3 py-2 mt-3">Threat Intel</div>
+        {NAV_INTEL.map(({ href, icon: Icon, label }) => {
+          const active = pathname === href || pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn('sidebar-item', active && 'active')}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               {label}
