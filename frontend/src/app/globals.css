@@ -233,3 +233,27 @@ body {
 @keyframes threat-radar-spin {
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
+
+/* ── Performance: CSS containment for isolated paint regions ───────────── */
+/* Scatter plots, map containers, terminal logs are fully self-contained */
+.perf-contain {
+  contain: layout style paint;
+}
+
+/* GPU-accelerate elements that animate transforms */
+.gpu-layer {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Animate only opacity/transform — avoid layout recalc triggers */
+.transition-gpu {
+  transition-property: opacity, transform;
+  will-change: opacity, transform;
+}
+
+/* Smooth button active state without layout shift */
+button:active:not(:disabled) {
+  transform: scale(0.98);
+  transition: transform 80ms ease;
+}

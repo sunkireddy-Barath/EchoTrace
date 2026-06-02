@@ -27,10 +27,23 @@ declare module 'react-simple-maps' {
     children?: ReactNode;
     onMouseEnter?: MouseEventHandler<SVGGElement>;
     onMouseLeave?: MouseEventHandler<SVGGElement>;
+    [key: string]: unknown;
+  }
+
+  export interface LineProps {
+    coordinates: [number, number][];
+    stroke?: string;
+    strokeWidth?: number;
+    strokeOpacity?: number;
+    strokeDasharray?: string;
+    fill?: string;
+    children?: ReactNode;
+    [key: string]: unknown;
   }
 
   export const ComposableMap: ComponentType<ComposableMapProps>;
   export const Geographies: ComponentType<GeographiesProps>;
   export const Geography: ComponentType<GeographyProps>;
   export const Marker: ComponentType<MarkerProps>;
+  export const Line: ComponentType<LineProps>;
 }

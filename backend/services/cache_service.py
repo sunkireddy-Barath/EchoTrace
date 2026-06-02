@@ -56,5 +56,5 @@ def analysis_cache_key(text: str, modality: str) -> str:
 
 
 def invalidate_metadata_caches() -> None:
-    metadata_cache.invalidate("family_stats")
-    metadata_cache.invalidate("family_centroids")
+    for key in ("family_stats", "family_centroids", "graph_result", "total_count", "community_count"):
+        metadata_cache.invalidate(key)

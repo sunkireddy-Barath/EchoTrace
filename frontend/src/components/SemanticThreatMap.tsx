@@ -304,7 +304,7 @@ export const SemanticThreatMap = memo(function SemanticThreatMap() {
       </div>
 
       {/* Chart */}
-      <div className="p-4" style={{ height: 400 }}>
+      <div className="p-4 perf-contain" style={{ height: 400 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />

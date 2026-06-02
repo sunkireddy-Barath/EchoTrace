@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, memo, useMemo } from 'react';
 import { ChevronDown, ChevronUp, AlertOctagon, Database, Zap } from 'lucide-react';
 
 /* ── Color constants ─────────────────────────────────────────────────────── */
@@ -92,7 +92,7 @@ function nowTs() {
 }
 
 /* ── Radar sweep animation ────────────────────────────────────────────────── */
-function RadarHeader() {
+const RadarHeader = memo(function RadarHeader() {
   return (
     <div className="relative flex items-center justify-center py-8 overflow-hidden">
       {/* Radar circles */}
@@ -124,38 +124,47 @@ function RadarHeader() {
       </div>
     </div>
   );
-}
+});
 
 /* ── Terminal log panel ──────────────────────────────────────────────────── */
-function TerminalLog() {
-  const [logs, setLogs] = useState<string[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const idx = useRef(0);
+/* TerminalLog uses imperative DOM updates — zero React re-renders per tick */
+const TerminalLog = memo(function TerminalLog() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const idxRef = useRef(0);
 
   useEffect(() => {
-    const initial = Array.from({ length: 4 }, (_, i) => LOG_TEMPLATES[i](nowTs()));
-    setLogs(initial);
+    const body = bodyRef.current;
+    if (!body) return;
+
+    function addLine(text: string, highlight: boolean) {
+      const div = document.createElement('div');
+      div.className = `whitespace-pre ${highlight ? 'text-green-400' : 'text-green-600/60'}`;
+      div.textContent = text;
+      if (highlight) {
+        Array.from(body!.children).forEach(c =>
+          ((c as HTMLElement).className = 'whitespace-pre text-green-600/60')
+        );
+      }
+      body!.appendChild(div);
+      while (body!.children.length > 30) body!.removeChild(body!.firstChild!);
+      const sc = scrollRef.current;
+      if (sc && sc.scrollHeight - sc.scrollTop - sc.clientHeight <= 60) {
+        sc.scrollTop = sc.scrollHeight;
+      }
+    }
+
+    Array.from({ length: 4 }, (_, i) => LOG_TEMPLATES[i](nowTs())).forEach((l, i) =>
+      addLine(l, i === 3)
+    );
 
     const interval = setInterval(() => {
-      // Slower cadence reduces terminal log re-renders
-      const entry = LOG_TEMPLATES[idx.current % LOG_TEMPLATES.length](nowTs());
-      setLogs(prev => [...prev.slice(-30), entry]);
-      idx.current++;
+      addLine(LOG_TEMPLATES[idxRef.current % LOG_TEMPLATES.length](nowTs()), true);
+      idxRef.current++;
     }, 4000);
+
     return () => clearInterval(interval);
   }, []);
-
-  // Scroll only the log container — never the page.
-  // Only auto-scroll to bottom if the user is already near the bottom.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    // 60 px threshold — if user scrolled up more than this, leave them alone
-    if (distanceFromBottom <= 60) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [logs]);
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#050b14] overflow-hidden">
@@ -169,24 +178,15 @@ function TerminalLog() {
           <span className="text-[10px] font-mono text-green-400">LIVE</span>
         </div>
       </div>
-      {/* Fixed-height scrollable container — scroll is isolated here, never the page */}
-      <div
-        ref={containerRef}
-        className="p-4 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-3"
-        style={{ maxHeight: '13rem' }}
-      >
-        {logs.map((log, i) => (
-          <div key={i} className={`${i === logs.length - 1 ? 'text-green-400' : 'text-green-600/70'} whitespace-pre`}>
-            {log}
-          </div>
-        ))}
+      <div ref={scrollRef} className="p-4 overflow-y-auto" style={{ maxHeight: '13rem' }}>
+        <div ref={bodyRef} className="font-mono text-[11px] leading-relaxed space-y-3" />
       </div>
     </div>
   );
-}
+});
 
 /* ── Novelty visualizer ─────────────────────────────────────────────────── */
-function NoveltyVisualizer({ alert }: { alert: typeof ZERO_DAY_ALERTS[0] }) {
+const NoveltyVisualizer = memo(function NoveltyVisualizer({ alert }: { alert: typeof ZERO_DAY_ALERTS[0] }) {
   const maxScore = Math.max(...Object.values(alert.scores));
   const novelty = 100 - maxScore;
   return (
@@ -237,10 +237,10 @@ function NoveltyVisualizer({ alert }: { alert: typeof ZERO_DAY_ALERTS[0] }) {
       </p>
     </div>
   );
-}
+});
 
 /* ── Alert card ─────────────────────────────────────────────────────────── */
-function AlertCard({
+const AlertCard = memo(function AlertCard({
   alert, selected, onClick,
 }: { alert: typeof ZERO_DAY_ALERTS[0]; selected: boolean; onClick: () => void }) {
   const isZeroDay = alert.badge === 'ZERO-DAY';
@@ -283,10 +283,10 @@ function AlertCard({
       </div>
     </button>
   );
-}
+});
 
 /* ── Proto-family tracker ────────────────────────────────────────────────── */
-function ProtoFamilyCard({ pf }: { pf: typeof PROTO_FAMILIES[0] }) {
+const ProtoFamilyCard = memo(function ProtoFamilyCard({ pf }: { pf: typeof PROTO_FAMILIES[0] }) {
   const pct = (pf.count / 10) * 100;
   const nearGrad = pf.count >= 8;
   return (
@@ -327,10 +327,10 @@ function ProtoFamilyCard({ pf }: { pf: typeof PROTO_FAMILIES[0] }) {
       </p>
     </div>
   );
-}
+});
 
 /* ── Architecture panel ─────────────────────────────────────────────────── */
-function ArchitecturePanel() {
+const ArchitecturePanel = memo(function ArchitecturePanel() {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-white/10 bg-[#0d1426] overflow-hidden">
@@ -376,7 +376,7 @@ function ArchitecturePanel() {
       )}
     </div>
   );
-}
+});
 
 /* ── Page ──────────────────────────────────────────────────────────────── */
 export default function RadarPage() {

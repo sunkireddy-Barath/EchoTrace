@@ -6,6 +6,7 @@ import {
   Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ChevronDown, ChevronUp, Database, Search, Layers, Zap } from 'lucide-react';
+import { memo } from 'react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 type Family = 'Banking Fraud' | 'Job Scam' | 'UPI/Payment' | 'Phishing' | 'Lottery' | 'Loan Scam';
@@ -249,7 +250,7 @@ function LiveSearch({ onNewPoint }: { onNewPoint: (fam: Family) => void }) {
 }
 
 /* ── HNSW sidebar ─────────────────────────────────────────────────────────── */
-function HNSWSidebar() {
+const HNSWSidebar = memo(function HNSWSidebar() {
   return (
     <div className="rounded-xl border border-white/10 bg-[#0d1426] p-5 space-y-4">
       <div className="flex items-center gap-2">
@@ -278,10 +279,10 @@ Layer 0:  •••••••••••••••  (all 82 vectors)`
       </div>
     </div>
   );
-}
+});
 
 /* ── Cosine ruler ─────────────────────────────────────────────────────────── */
-function CosineRuler() {
+const CosineRuler = memo(function CosineRuler() {
   const LEVELS = [
     { label: 'ZERO-DAY', range: '<42%', color: '#7F77DD', left: '2%' },
     { label: 'EMERGING', range: '42-58%', color: '#f59e0b', left: '21%' },
@@ -316,10 +317,10 @@ function CosineRuler() {
       </p>
     </div>
   );
-}
+});
 
 /* ── Query log panel ─────────────────────────────────────────────────────── */
-function QueryLogPanel() {
+const QueryLogPanel = memo(function QueryLogPanel() {
   const [open, setOpen] = useState(false);
   const LOGS = [
     { cmd: 'client.get_collection("scam_messages")', result: '→ status: green · vectors_count: 82 · indexed: true', ok: true },
@@ -354,7 +355,7 @@ function QueryLogPanel() {
       )}
     </div>
   );
-}
+});
 
 /* ── Page ──────────────────────────────────────────────────────────────── */
 export default function VectorSpacePage() {

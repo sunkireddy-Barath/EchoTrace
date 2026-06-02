@@ -415,12 +415,22 @@ class QdrantService:
         return sorted(feed, key=lambda x: x["timestamp"], reverse=True)
 
     def get_total_count(self) -> int:
+        key = "total_count"
+        cached = metadata_cache.get(key)
+        if cached is not None:
+            return cached
         try:
-            return self.client.count(collection_name=self.scam_messages).count
+            count = self.client.count(collection_name=self.scam_messages).count
+            metadata_cache.set(key, count)
+            return count
         except Exception:
             return 0
 
     def get_community_count(self) -> int:
+        key = "community_count"
+        cached = metadata_cache.get(key)
+        if cached is not None:
+            return cached
         try:
             result = self.client.count(
                 collection_name=self.scam_messages,
@@ -433,7 +443,9 @@ class QdrantService:
                     ]
                 ),
             )
-            return result.count
+            count = result.count
+            metadata_cache.set(key, count)
+            return count
         except Exception:
             return 0
 

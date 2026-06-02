@@ -63,6 +63,7 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
+              prefetch={false}
               className={cn('sidebar-item', active && 'active')}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
