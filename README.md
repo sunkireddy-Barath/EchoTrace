@@ -13,7 +13,7 @@
 
 ### *Semantic Fraud Evolution & Threat Intelligence Engine*
 
-> **"Detect scam families before keywords can."**
+**"Detect scam families before keywords can."**
 
 EchoTrace is not a keyword filter. It is not a chatbot wrapper.  
 It is a **Qdrant-native semantic intelligence platform** that maps the psychological DNA of scams across 384 dimensions — detecting mutations, tracing evolution, and catching zero-day threats that every other system misses.
