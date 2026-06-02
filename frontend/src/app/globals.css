@@ -164,3 +164,49 @@ body {
 }
 
 .animate-fade-up { animation: fade-up 0.5s ease-out; }
+
+/* ── Radar sweep ───────────────────────────────────────────────────────────── */
+.radar-sweep-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.radar-sweep-container::before,
+.radar-sweep-container::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(226,75,74,0.18);
+}
+.radar-sweep-container::before { width: 120px; height: 120px; }
+.radar-sweep-container::after  { width: 180px; height: 180px; }
+
+/* ── Ticker scroll ─────────────────────────────────────────────────────── */
+.ticker-wrapper {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ── World map marker pulse ────────────────────────────────────────────── */
+.map-pulse circle.pulse-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ── Code block styles for terminal panels ─────────────────────────────── */
+.terminal-block {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  color: rgba(74, 222, 128, 0.8);
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  padding: 14px;
+  overflow-x: auto;
+}
+.terminal-block .hl-amber  { color: #f59e0b; }
+.terminal-block .hl-blue   { color: #60a5fa; }
+.terminal-block .hl-green  { color: rgba(74, 222, 128, 1); }
+.terminal-block .hl-purple { color: #a78bfa; }
+.terminal-block .hl-slate  { color: #64748b; }

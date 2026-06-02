@@ -356,16 +356,19 @@ export default function ThreatMapPage() {
                       onMouseEnter={() => setHovered(country)}
                       onMouseLeave={() => setHovered(null)}
                     >
-                      {/* Pulse ring */}
-                      <circle r={r + 6} fill="none" stroke={color} strokeWidth={1} opacity={0.3} className="animate-pulse-ring" />
+                      {/* Pulse ring — SMIL animation (SVG-native, no transform-box issues) */}
+                      <circle r={r} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={0}>
+                        <animate attributeName="r" values={`${r};${r + 14};${r}`} dur="2.4s" repeatCount="indefinite" calcMode="ease-out" />
+                        <animate attributeName="opacity" values="0.35;0;0" dur="2.4s" repeatCount="indefinite" calcMode="ease-out" />
+                      </circle>
                       {/* Main circle */}
                       <circle
                         r={r}
                         fill={color}
-                        fillOpacity={0.7}
+                        fillOpacity={0.72}
                         stroke={color}
                         strokeWidth={1.5}
-                        style={{ cursor: 'pointer', filter: `drop-shadow(0 0 4px ${color})` }}
+                        style={{ cursor: 'pointer', filter: `drop-shadow(0 0 5px ${color}88)` }}
                       />
                       {/* Report count label for large circles */}
                       {country.reports >= 500 && (

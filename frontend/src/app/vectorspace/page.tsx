@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell
+  Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ChevronDown, ChevronUp, Database, Search, Layers, Zap } from 'lucide-react';
 
@@ -109,7 +109,12 @@ function buildPoints(): VecPoint[] {
   return pts;
 }
 
-const CORPUS = buildPoints();
+// Defer to client to avoid SSR/hydration mismatch from Math.random()
+let _corpus: VecPoint[] | null = null;
+function getCorpus(): VecPoint[] {
+  if (!_corpus) _corpus = buildPoints();
+  return _corpus;
+}
 
 /* ── Tooltip ─────────────────────────────────────────────────────────────── */
 function VecTooltip({ active, payload }: { active?: boolean; payload?: { payload: VecPoint }[] }) {
@@ -353,7 +358,8 @@ function QueryLogPanel() {
 
 /* ── Page ──────────────────────────────────────────────────────────────── */
 export default function VectorSpacePage() {
-  const [points, setPoints] = useState<VecPoint[]>(CORPUS);
+  const [points, setPoints] = useState<VecPoint[]>([]);
+  useEffect(() => { setPoints(getCorpus()); }, []);
   const [newPoint, setNewPoint] = useState<VecPoint | null>(null);
 
   const handleNewPoint = useCallback((fam: Family) => {
@@ -444,22 +450,39 @@ export default function VectorSpacePage() {
                     label={{ value: 'UMAP-2', angle: -90, position: 'insideLeft', fill: '#4a5568', fontSize: 9 }}
                   />
                   <Tooltip content={<VecTooltip />} />
-                  <Scatter data={points} isAnimationActive={false}>
-                    {points.map(p => {
+                  <Scatter
+                    data={points}
+                    isAnimationActive={false}
+                    shape={(props: { cx?: number; cy?: number; payload?: VecPoint }) => {
+                      const cx = props.cx ?? 0;
+                      const cy = props.cy ?? 0;
+                      const p = props.payload!;
                       const isNew = p === newPoint;
-                      const size = p.isCentroid ? 130 : isNew ? 90 : 40;
+                      const r = p.isCentroid ? 10 : isNew ? 7 : 4.5;
+                      const color = COLORS[p.family];
                       return (
-                        <Cell
-                          key={p.vecId}
-                          fill={COLORS[p.family]}
-                          fillOpacity={p.isCentroid ? 1 : isNew ? 1 : 0.65}
-                          stroke={p.isCentroid ? COLORS[p.family] : isNew ? '#fff' : 'transparent'}
-                          strokeWidth={p.isCentroid ? 2 : isNew ? 2 : 0}
-                          r={Math.sqrt(size / Math.PI)}
-                        />
+                        <g key={p.vecId}>
+                          {p.isCentroid && (
+                            <circle cx={cx} cy={cy} r={r + 5} fill="none" stroke={color} strokeWidth={1.5} strokeOpacity={0.45} />
+                          )}
+                          {isNew && (
+                            <circle cx={cx} cy={cy} r={r + 9} fill={color} fillOpacity={0.12}>
+                              <animate attributeName="r" values={`${r};${r + 15};${r}`} dur="2s" repeatCount="indefinite" />
+                              <animate attributeName="opacity" values="0.12;0;0.12" dur="2s" repeatCount="indefinite" />
+                            </circle>
+                          )}
+                          <circle
+                            cx={cx} cy={cy} r={r}
+                            fill={color}
+                            fillOpacity={p.isCentroid ? 1 : isNew ? 1 : 0.65}
+                            stroke={p.isCentroid ? color : isNew ? '#fff' : 'none'}
+                            strokeWidth={p.isCentroid ? 1.5 : isNew ? 2 : 0}
+                            style={isNew ? { filter: `drop-shadow(0 0 6px ${color})` } : undefined}
+                          />
+                        </g>
                       );
-                    })}
-                  </Scatter>
+                    }}
+                  />
                 </ScatterChart>
               </ResponsiveContainer>
             </div>

@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell
+  Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Network, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import { Network } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 type Family = 'Banking Fraud' | 'Job Scam' | 'UPI/Payment' | 'Phishing' | 'Lottery' | 'Loan Scam' | 'Emerging';
@@ -151,7 +151,12 @@ function buildCorpus(): VectorPoint[] {
   return points;
 }
 
-const CORPUS = buildCorpus();
+// Defer corpus generation to client — avoids SSR/hydration mismatch from Math.random()
+let _corpus: VectorPoint[] | null = null;
+function getCorpus(): VectorPoint[] {
+  if (!_corpus) _corpus = buildCorpus();
+  return _corpus;
+}
 
 /* ── Custom tooltip ─────────────────────────────────────────────────────── */
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payload: VectorPoint }[] }) {
@@ -212,7 +217,10 @@ function Legend({ active, onToggle }: { active: Family[]; onToggle: (f: Family) 
 /* ── Main component ──────────────────────────────────────────────────────── */
 export function SemanticThreatMap() {
   const [activeF, setActiveF] = useState<Family[]>(Object.keys(FAMILY_COLORS) as Family[]);
-  const [livePoints, setLivePoints] = useState<VectorPoint[]>(CORPUS);
+  const [livePoints, setLivePoints] = useState<VectorPoint[]>([]);
+
+  // Populate corpus on client only to avoid SSR/client Math.random() hydration mismatch
+  useEffect(() => { setLivePoints(getCorpus()); }, []);
   const [highlightedFamily, setHighlightedFamily] = useState<Family | null>(null);
   const [newDotId, setNewDotId] = useState<string | null>(null);
 
@@ -316,36 +324,40 @@ export function SemanticThreatMap() {
               label={{ value: 'UMAP-2', angle: -90, position: 'insideLeft', fill: '#4a5568', fontSize: 9 }}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Scatter data={visible} isAnimationActive={false}>
-              {visible.map((p) => {
+            <Scatter
+              data={visible}
+              isAnimationActive={false}
+              shape={(props: { cx?: number; cy?: number; payload?: VectorPoint }) => {
+                const cx = props.cx ?? 0;
+                const cy = props.cy ?? 0;
+                const p = props.payload!;
                 const isHighlighted = highlightedFamily === p.family;
-                const isNewDot = p.id === newDotId;
-                let size = p.isCentroid ? 120 : 40;
-                if (isNewDot) size = 80;
+                const isNew = p.id === newDotId;
+                const r = p.isCentroid ? 9 : isNew ? 7 : 4;
+                const color = FAMILY_COLORS[p.family];
+                const opacity = isNew ? 1 : isHighlighted ? 0.95 : highlightedFamily ? 0.15 : p.isCentroid ? 1 : p.isEmerging ? 0.9 : 0.65;
                 return (
-                  <Cell
-                    key={p.id}
-                    fill={FAMILY_COLORS[p.family]}
-                    fillOpacity={
-                      isNewDot ? 1
-                        : isHighlighted ? 0.9
-                        : highlightedFamily ? 0.15
-                        : p.isCentroid ? 1
-                        : p.isEmerging ? 0.85
-                        : 0.65
-                    }
-                    stroke={
-                      p.isCentroid ? FAMILY_COLORS[p.family]
-                        : isNewDot ? '#ffffff'
-                        : isHighlighted ? FAMILY_COLORS[p.family]
-                        : 'transparent'
-                    }
-                    strokeWidth={p.isCentroid ? 2 : isNewDot ? 2 : 0}
-                    r={Math.sqrt(size / Math.PI)}
-                  />
+                  <g key={p.id}>
+                    {p.isCentroid && (
+                      <circle cx={cx} cy={cy} r={r + 5} fill="none" stroke={color} strokeWidth={1.5} strokeOpacity={0.5} />
+                    )}
+                    {isNew && (
+                      <circle cx={cx} cy={cy} r={r + 8} fill={color} fillOpacity={0.15}>
+                        <animate attributeName="r" values={`${r};${r + 14};${r}`} dur="2s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.15;0;0.15" dur="2s" repeatCount="indefinite" />
+                      </circle>
+                    )}
+                    <circle
+                      cx={cx} cy={cy} r={r}
+                      fill={color} fillOpacity={opacity}
+                      stroke={p.isCentroid ? color : isNew ? '#ffffff' : isHighlighted ? color : 'none'}
+                      strokeWidth={p.isCentroid ? 1.5 : isNew ? 2 : isHighlighted ? 1 : 0}
+                      style={isNew ? { filter: `drop-shadow(0 0 5px ${color})` } : undefined}
+                    />
+                  </g>
                 );
-              })}
-            </Scatter>
+              }}
+            />
           </ScatterChart>
         </ResponsiveContainer>
       </div>
