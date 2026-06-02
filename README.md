@@ -33,7 +33,7 @@ It is a **Qdrant-native semantic intelligence platform** that maps the psycholog
 
 <div align="center">
 
-[![EchoTrace Demo Video](https://img.youtube.com/vi/3dWzNZXA8DY/maxresdefault.jpg)](https://youtu.be/3dWzNZXA8DY)
+[![EchoTrace Demo Video](https://img.youtube.com/vi/V-ru23CXcNo/maxresdefault.jpg)](https://youtu.be/V-ru23CXcNo)
 
 *Click to watch the full 3-minute demo · Landing → Analysis → Zero-Day Detection*
 
