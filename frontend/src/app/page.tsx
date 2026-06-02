@@ -398,7 +398,7 @@ export default function LandingPage() {
           >
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center gap-2.5 h-[3.25rem]px-8 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm hover:from-blue-500 hover:to-indigo-500 transition-all shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_50px_rgba(59,130,246,0.5)]"
+              className="inline-flex items-center justify-center gap-2.5 h-[3.25rem] px-8 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm hover:from-blue-500 hover:to-indigo-500 transition-all shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_50px_rgba(59,130,246,0.5)]"
             >
               <Zap className="w-4 h-4" />
               Get Started
@@ -406,8 +406,9 @@ export default function LandingPage() {
             </Link>
             <a
               href="#technology"
-              className="inline-flex items-center justify-center gap-2 h-[3.25rem]px-6 py-3.5 rounded-xl border border-white/15 bg-white/4 backdrop-blur text-slate-300 text-sm hover:border-white/30 hover:text-white transition-all"
+              className="inline-flex items-center justify-center gap-2 h-[3.25rem] px-7 rounded-xl border border-blue-500/40 bg-blue-500/10 backdrop-blur text-blue-300 font-semibold text-sm hover:border-blue-400/70 hover:bg-blue-500/20 hover:text-white transition-all shadow-[0_0_20px_rgba(59,130,246,0.15)] hover:shadow-[0_0_30px_rgba(59,130,246,0.3)]"
             >
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
               View Technology
             </a>
           </motion.div>
