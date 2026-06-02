@@ -78,9 +78,9 @@ EchoTrace converts all content into **384-dimensional semantic vectors** using S
 ### Full System Pipeline
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        USER INPUT (Multimodal)                      │
-│          Text Message │ Screenshot (Image) │ Voice Recording        │
+┌────────────────────────────────────────────────────────────────────┐
+│                        USER INPUT (Multimodal)                     │
+│          Text Message │ Screenshot (Image) │ Voice Recording       │
 └──────────────┬────────────────┬────────────────────┬───────────────┘
                │                │                    │
                ▼                ▼                    ▼
@@ -91,17 +91,17 @@ EchoTrace converts all content into **384-dimensional semantic vectors** using S
                                 │
                                 ▼
                ┌────────────────────────────────┐
-               │     SentenceTransformers        │
-               │     all-MiniLM-L6-v2            │
-               │     384-dimensional vector      │
+               │     SentenceTransformers       │
+               │     all-MiniLM-L6-v2           │
+               │     384-dimensional vector     │
                └───────────────┬────────────────┘
                                │
                                ▼  ◄── PRIMARY QDRANT CALL
                ┌────────────────────────────────┐
-               │         QDRANT ENGINE           │
-               │   HNSW Index + INT8 Quant.      │
-               │   cosine similarity search      │
-               │   top-10 nearest neighbors      │
+               │         QDRANT ENGINE          │
+               │   HNSW Index + INT8 Quant.     │
+               │   cosine similarity search     │
+               │   top-10 nearest neighbors     │
                └───────────────┬────────────────┘
                                │
            ┌───────────────────┼───────────────────┬──────────────────┐
@@ -116,18 +116,18 @@ EchoTrace converts all content into **384-dimensional semantic vectors** using S
                                │
                                ▼
                ┌────────────────────────────────┐
-               │       SEMANTIC GENOME           │
-               │  8-dimension psychological      │
-               │  manipulation profile           │
-               │  radar chart output             │
+               │       SEMANTIC GENOME          │
+               │  8-dimension psychological     │
+               │  manipulation profile          │
+               │  radar chart output            │
                └───────────────┬────────────────┘
                                │
                                ▼
                ┌────────────────────────────────┐
-               │     THREAT INTELLIGENCE REPORT  │
-               │  Threat card + DNA radar +      │
-               │  evolution timeline + graph +   │
-               │  PDF export                     │
+               │     THREAT INTELLIGENCE REPORT │
+               │  Threat card + DNA radar +     │
+               │  evolution timeline + graph +  │
+               │  PDF export                    │
                └────────────────────────────────┘
 ```
 
