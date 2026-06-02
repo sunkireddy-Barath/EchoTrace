@@ -224,8 +224,8 @@ flowchart TD
   │   ●Lott●  ←── Lottery              ●●● ←── Loan Scam │
   │    ●●●●       cluster              ●Loan             │
   │                                                      │
-  │                    🔴 ← Zero-day (isolated)           │
-  │                    (no cluster, novelty > 58%)        │
+  │                    🔴 ← Zero-day (isolated)          │
+  │                    (no cluster, novelty > 58%)       │
   └──────────────────────────────────────────────────────┘
   Each dot = real Qdrant vector · Distance = cosine similarity
   Large ⊕ = centroid vector in scam_families collection
@@ -509,10 +509,10 @@ http://localhost:8000/docs   → Interactive API docs (FastAPI Swagger)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  THREAT CARD                                                 │
+│  THREAT CARD                                                │
 │  ├── Threat Level   → HIGH · Banking Fraud · 91%            │
-│  ├── Modality       → Text                                   │
-│  └── Risk Flags     → ⚠ Urgency spike · 🔑 OTP harvest       │
+│  ├── Modality       → Text                                  │
+│  └── Risk Flags     → ⚠ Urgency spike · 🔑 OTP harvest      │
 │                                                             │
 │  SEMANTIC GENOME RADAR                                      │
 │  ├── Fear: 94% · Urgency: 88% · Authority: 71%              │
@@ -523,7 +523,7 @@ http://localhost:8000/docs   → Interactive API docs (FastAPI Swagger)
 │  └── 2023 · Banking Fraud · 74% "Complete e-KYC verify..."  │
 │                                                             │
 │  EVOLUTION TIMELINE                                         │
-│  └── 2020 → 2021 → 2022 → 2023 → 2024 → 2025               │
+│  └── 2020 → 2021 → 2022 → 2023 → 2024 → 2025                │
 │                                                             │
 │  PDF EXPORT → Download full threat brief                    │
 └─────────────────────────────────────────────────────────────┘
